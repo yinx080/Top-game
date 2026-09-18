@@ -89,6 +89,12 @@ async def _dispatch(
         if room.phase is not Phase.PLACING:
             await _announce_phase(runtime)
 
+    elif action == "chat":
+        message = room.post_chat(player_id, str(data.get("text") or ""))
+        await runtime.broadcast(
+            {"kind": "chat", "messageId": message.id, "from": message.player_name}
+        )
+
     elif action == "force":
         # El anfitrión cierra la fase sin esperar a los rezagados.
         room.ensure_host(player_id)

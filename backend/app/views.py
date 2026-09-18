@@ -79,6 +79,20 @@ def _table_view(room: Room) -> list[dict[str, Any]]:
     ]
 
 
+def _chat_view(room: Room) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": m.id,
+            "playerId": m.player_id,
+            "playerName": m.player_name,
+            "color": m.color,
+            "text": m.text,
+            "at": m.at,
+        }
+        for m in room.chat
+    ]
+
+
 def room_view(room: Room, viewer_id: str | None) -> dict[str, Any]:
     viewer = room.players.get(viewer_id) if viewer_id else None
 
@@ -127,10 +141,12 @@ def room_view(room: Room, viewer_id: str | None) -> dict[str, Any]:
         "outcome": room.outcome,
         "breakIndex": room.break_index,
         "savedTopics": len(room.topic_pool),
+        "chat": _chat_view(room),
         "limits": {
             "answer": settings.max_answer_len,
             "topic": settings.max_topic_len,
             "name": settings.max_name_len,
+            "chat": settings.max_chat_len,
             "minValue": MIN_VALUE,
             "maxValue": MAX_VALUE,
         },

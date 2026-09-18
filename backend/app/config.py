@@ -40,6 +40,11 @@ class Settings:
     max_topic_len: int = 70
     max_answer_len: int = 28
     max_password_len: int = 32
+    max_chat_len: int = 160
+
+    # Chat de sala
+    chat_history: int = 40      # mensajes que se conservan (van en cada estado)
+    chat_cooldown: float = 0.5  # segundos mínimos entre mensajes de un jugador
 
     # Votación de tema
     min_candidates: int = 3

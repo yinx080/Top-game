@@ -56,6 +56,15 @@ export interface TableEntry {
   card: Card | null
 }
 
+export interface ChatMessage {
+  id: number
+  playerId: string
+  playerName: string
+  color: number
+  text: string
+  at: number
+}
+
 export interface RoomView {
   code: string
   name: string
@@ -79,10 +88,12 @@ export interface RoomView {
   outcome: 'win' | 'lose' | null
   breakIndex: number | null
   savedTopics: number
+  chat: ChatMessage[]
   limits: {
     answer: number
     topic: number
     name: number
+    chat: number
     minValue: number
     maxValue: number
   }
@@ -118,6 +129,7 @@ export type ServerEvent =
   | { kind: 'vote_cast' }
   | { kind: 'topic_chosen'; topic: string }
   | { kind: 'card_placed'; slot: number }
+  | { kind: 'chat'; messageId: number; from: string }
   | { kind: 'turn_skipped' }
   | { kind: 'reveal_start' }
   | { kind: 'reveal'; slot: number }
@@ -144,3 +156,4 @@ export type ClientMessage =
   | { action: 'skip_turn' }
   | { action: 'back_to_lobby' }
   | { action: 'kick'; playerId: string }
+  | { action: 'chat'; text: string }

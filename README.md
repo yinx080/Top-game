@@ -51,8 +51,9 @@ Si existe `frontend/dist`, FastAPI lo sirve él mismo y todo queda en el puerto
 ### Jugar tú contra bots
 
 Para probar la partida entera sin reunir a cuatro personas, `scripts/bots.py`
-mete jugadores automáticos que proponen tema, votan y colocan su carta según su
-valor (con algo de ruido, para que también fallen).
+mete jugadores automáticos que proponen tema, votan, colocan su carta según su
+valor (con algo de ruido, para que también fallen) y sueltan alguna frase por el
+chat.
 
 ```bash
 # Creas tú la sala en el navegador y metes bots con su código.
@@ -70,7 +71,7 @@ sala es privada, `--base` si el backend no está en el 8000. Se paran con Ctrl+C
 ### Comprobaciones
 
 ```bash
-cd backend && python -m pytest        # 48 tests: reglas, API y partida por WebSocket
+cd backend && python -m pytest        # 57 tests: reglas, chat, API y partida por WebSocket
 cd frontend && npm run typecheck
 python scripts/play_demo.py --players 5          # partida completa contra un servidor vivo
 python scripts/play_demo.py --players 5 --smart  # colocando bien: debe ganar
@@ -92,7 +93,7 @@ navegador ──REST──►  /api/rooms…      listar, buscar, crear y entrar
 
 | Fichero | Qué hace |
 | --- | --- |
-| `room.py` | Estado de la sala y máquina de estados de la ronda. Sin E/S: aquí viven todas las reglas. |
+| `room.py` | Estado de la sala, máquina de estados de la ronda y chat. Sin E/S: aquí viven todas las reglas. |
 | `store.py` | Salas en memoria, un `asyncio.Lock` por sala, difusión por WebSocket y barrendero de salas muertas. |
 | `views.py` | Serialización **por jugador**. Es donde se garantiza que nadie vea la carta de otro. |
 | `ws.py` | Traduce acciones del cliente a llamadas a `room.py` y difunde el resultado. |
@@ -104,7 +105,7 @@ navegador ──REST──►  /api/rooms…      listar, buscar, crear y entrar
 | Carpeta | Qué hay |
 | --- | --- |
 | `screens/` | `Menu` (inicio, buscador, ajustes, crear/entrar) y `Room` (la mesa). |
-| `room/` | Piezas de la mesa: carta, cartas colocadas, fichas de jugador, carta en mano, paneles de fase. |
+| `room/` | Piezas de la mesa: carta, cartas colocadas, fichas de jugador, carta en mano, chat y paneles de fase. |
 | `state/` | `useSession` (nombre, ajustes y asientos, persistidos) y `useRoom` (estado vivo de la sala). |
 | `lib/` | Cliente REST, WebSocket con reconexión, enrutado por hash y sonidos sintetizados. |
 | `styles/` | Tokens de diseño y hojas de menú y sala. |
@@ -156,6 +157,12 @@ guarda en el navegador, el WebSocket reintenta con espera creciente y la partida
 sigue. Si alguien no vuelve en 2 minutos, el barrendero le retira; las cartas que
 ya hubiera colocado se quedan en la mesa con su nombre. El anfitrión puede saltar
 el turno de quien se haya caído.
+
+**El chat viaja dentro del estado de la sala.** Se conservan los últimos 40
+mensajes y van en cada difusión, así que quien entra a mitad de partida ve el
+hilo reciente sin un canal aparte ni una petición extra. Cada jugador tiene medio
+segundo de espera entre mensajes, suficiente para cortar el spam sin que se note
+al escribir normal. El chat no se borra al empezar una ronda nueva.
 
 **Sonido sintetizado, no ficheros.** Los efectos se generan con WebAudio: pesan
 cero, no arrastran licencias y suenan exactamente al timbre arcade que pide el

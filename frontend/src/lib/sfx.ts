@@ -15,6 +15,7 @@ export type SoundName =
   | 'vote'
   | 'join'
   | 'leave'
+  | 'chat'
   | 'win'
   | 'lose'
 
@@ -85,6 +86,10 @@ export const sfx = {
       case 'join':
         blip(ctx, master, at, 523, 0.08, 'square', 0.2)
         blip(ctx, master, at + 0.08, 784, 0.1, 'square', 0.18)
+        break
+      case 'chat':
+        blip(ctx, master, at, 1046, 0.04, 'triangle', 0.16)
+        blip(ctx, master, at + 0.05, 1568, 0.06, 'triangle', 0.12)
         break
       case 'leave':
         blip(ctx, master, at, 440, 0.09, 'square', 0.18)

@@ -3,6 +3,12 @@
    =========================================================================== */
 
 .room {
+  /* Alto reservado abajo para la carta en mano. Lo usan la mesa y el chat, así
+     que basta tocarlo aquí para reajustar el hueco en cada tamaño. */
+  --hand-space: 168px;
+  /* El chat se ancla por encima de la mano para no taparla nunca. */
+  --chat-bottom: calc(var(--hand-space) + 8px);
+
   position: fixed;
   inset: 0;
   overflow: hidden;
@@ -42,14 +48,16 @@
 
 .table {
   position: absolute;
-  inset: 78px 20px 168px;
+  inset: 78px 20px var(--hand-space);
   z-index: 1;
   transition: inset 0.25s ease;
 }
 
-/* Sin carta en mano (lobby, votación, resultado) la mesa se come ese hueco. */
-.room--nohand .table {
-  inset: 78px 20px 26px;
+/* Sin carta en mano (lobby, votación, resultado) la mesa se come ese hueco.
+   La doble clase le gana en especificidad a las media queries de abajo. */
+.room.room--nohand {
+  --hand-space: 26px;
+  --chat-bottom: 14px;
 }
 
 /* El canto de madera usa la misma textura del repositorio, aclarada respecto
@@ -742,9 +750,10 @@
 
 .room__nudge {
   position: absolute;
-  bottom: 14px;
-  left: 16px;
-  z-index: 6;
+  top: 14px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 7;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -772,11 +781,212 @@
   text-transform: uppercase;
 }
 
+/* Cada esquina tiene un único dueño: barra arriba a la izquierda, tema arriba
+   a la derecha, mano abajo en el centro, chat abajo a la derecha y los avisos
+   abajo a la izquierda. */
+.room .toasts {
+  right: auto;
+  left: 16px;
+  bottom: 16px;
+}
+
+/* -------------------------------------------------------------------- chat */
+
+.chat {
+  position: absolute;
+  right: 16px;
+  bottom: var(--chat-bottom);
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  transition: bottom 0.25s ease;
+}
+
+.chat__toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 15px;
+  border: 2px solid var(--night-line);
+  border-radius: 13px;
+  background: rgb(8 7 14 / 84%);
+  backdrop-filter: blur(6px);
+  color: var(--paper);
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 4px 0 rgb(0 0 0 / 45%);
+  transition:
+    border-color 0.15s ease,
+    transform 0.08s ease,
+    box-shadow 0.08s ease;
+}
+
+.chat__toggle:hover {
+  border-color: var(--gold);
+}
+
+.chat__toggle:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 rgb(0 0 0 / 45%);
+}
+
+.chat--open .chat__toggle {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.chat__badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 20px;
+  padding: 1px 5px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--red);
+  color: var(--paper);
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: center;
+  animation: chatPing 1.6s ease-in-out infinite;
+}
+
+@keyframes chatPing {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(224 78 57 / 60%);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgb(224 78 57 / 0%);
+  }
+}
+
+.chat__panel {
+  display: flex;
+  flex-direction: column;
+  width: min(330px, calc(100vw - 32px));
+  height: min(370px, 46vh);
+  border: 2px solid var(--night-line);
+  border-radius: 16px;
+  background: rgb(8 7 14 / 90%);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-drop);
+  overflow: hidden;
+  /* El panel sale del botón, así que crece hacia arriba. */
+  order: -1;
+}
+
+.chat__log {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+  padding: 12px;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.chat__empty {
+  margin: auto 0;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--paper-dim);
+}
+
+.chat__msg {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-width: 88%;
+  padding: 6px 10px;
+  border-left: 3px solid var(--pc);
+  border-radius: 4px 10px 10px 4px;
+  background: rgb(255 255 255 / 6%);
+  overflow-wrap: anywhere;
+}
+
+.chat__msg.is-mine {
+  align-self: flex-end;
+  border-left: 0;
+  border-right: 3px solid var(--pc);
+  border-radius: 10px 4px 4px 10px;
+  background: rgb(245 185 59 / 12%);
+}
+
+.chat__who {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pc);
+}
+
+.chat__msg.is-mine .chat__who {
+  text-align: right;
+}
+
+.chat__text {
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+
+.chat__form {
+  display: flex;
+  gap: 7px;
+  padding: 10px;
+  border-top: 2px solid var(--night-line);
+  background: rgb(0 0 0 / 30%);
+}
+
+.chat__input {
+  flex: 1;
+  padding: 8px 11px;
+  font-size: 14px;
+}
+
+.chat__send {
+  flex-shrink: 0;
+  width: 40px;
+  border: 2px solid var(--gold-deep);
+  border-radius: var(--radius);
+  background: var(--gold);
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+.chat__send:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.chat__send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ---------------------------------------------------------------- estrecho */
 
 @media (max-width: 900px) {
+  .room {
+    --hand-space: 170px;
+  }
+
   .table {
-    inset: 128px 10px 170px;
+    inset: 128px 10px var(--hand-space);
+  }
+
+  .room__nudge {
+    top: auto;
+    bottom: calc(var(--hand-space) + 10px);
   }
 
   .roombar,
@@ -815,11 +1025,37 @@
     gap: 10px;
   }
 
+  .room {
+    --hand-space: 226px;
+  }
+
   .table {
-    inset: 124px 6px 226px;
+    inset: 124px 6px var(--hand-space);
   }
 
   .table__brand {
     display: none;
+  }
+
+  .chat {
+    right: 10px;
+  }
+
+  .chat__toggleLabel {
+    display: none;
+  }
+
+  .chat__panel {
+    width: calc(100vw - 20px);
+    height: min(320px, 40vh);
+  }
+
+  .room .toasts {
+    left: 10px;
+    bottom: calc(var(--hand-space) + 10px);
+  }
+
+  .room__nudge {
+    bottom: calc(var(--hand-space) + 74px);
   }
 }

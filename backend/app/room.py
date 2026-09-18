@@ -38,6 +38,7 @@ class Player:
     joined_at: float
     connected: bool = True
     disconnected_at: float | None = None
+    last_chat_at: float = 0.0
     # Estado de ronda
     card: Card | None = None
     placed: bool = False
@@ -71,8 +72,21 @@ class Candidate:
     author_name: str | None = None
 
 
+@dataclass(slots=True)
+class ChatMessage:
+    id: int
+    player_id: str
+    player_name: str
+    color: int
+    text: str
+    at: float
+
+
 def clean_text(text: str, limit: int) -> str:
-    return " ".join(text.split())[:limit].strip()
+    """Colapsa espacios y saltos de línea y descarta caracteres de control."""
+    collapsed = " ".join(text.split())
+    printable = "".join(c for c in collapsed if c.isprintable())
+    return printable[:limit].strip()
 
 
 @dataclass(slots=True)
@@ -103,6 +117,10 @@ class Room:
 
     outcome: str | None = None
     break_index: int | None = None
+
+    # El chat vive fuera de la ronda: no se borra al empezar una nueva.
+    chat: list[ChatMessage] = field(default_factory=list)
+    chat_seq: int = 0
 
     rng: random.Random = field(default_factory=random.Random, repr=False)
 
@@ -503,6 +521,39 @@ class Room:
         self.outcome = "lose" if self.break_index is not None else "win"
         self.phase = Phase.RESULT
         self.touch()
+
+    # -------------------------------------------------------------------- chat
+
+    def post_chat(self, player_id: str, text: str) -> ChatMessage:
+        """Publica un mensaje en el chat de la sala.
+
+        Se guarda sólo una cola corta: el historial viaja dentro del estado de
+        la sala, así que quien entra a mitad de partida ve el hilo reciente sin
+        necesidad de un canal aparte.
+        """
+        player = self.player_or_404(player_id)
+        cleaned = clean_text(text, settings.max_chat_len)
+        if not cleaned:
+            raise GameError("empty_message", "Escribe algo antes de enviarlo.")
+
+        now = time.time()
+        if now - player.last_chat_at < settings.chat_cooldown:
+            raise Conflict("too_fast", "Espera un momento entre mensaje y mensaje.")
+        player.last_chat_at = now
+
+        self.chat_seq += 1
+        message = ChatMessage(
+            id=self.chat_seq,
+            player_id=player.id,
+            player_name=player.name,
+            color=player.color,
+            text=cleaned,
+            at=now,
+        )
+        self.chat.append(message)
+        del self.chat[: -settings.chat_history]
+        self.touch()
+        return message
 
     # ---------------------------------------------------------------- helpers
 

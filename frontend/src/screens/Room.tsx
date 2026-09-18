@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 
 import { Button, Spinner } from '../components/ui'
 import { goHome } from '../lib/router'
+import { Chat } from '../room/Chat'
 import { HandZone } from '../room/HandZone'
 import { RoomBar, TopicBanner } from '../room/RoomBar'
 import { Seats } from '../room/Seats'
@@ -144,6 +145,8 @@ export function Room({ seat }: { seat: Seat }) {
         onAnswerChange={setAnswer}
         reducedMotion={reducedMotion}
       />
+
+      <Chat room={room} send={send} reducedMotion={reducedMotion} />
 
       {currentIsOffline && you?.isHost && (
         <div className="room__nudge">

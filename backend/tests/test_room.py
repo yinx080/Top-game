@@ -412,3 +412,67 @@ def test_a_saved_topic_comes_back_as_a_random_candidate():
         room.propose_topic(player.id, None)
     texts = [c.text for c in room.candidates]
     assert "Cafés de esta sala, de menos a más cargados" in texts
+
+
+# -------------------------------------------------------------------- chat
+
+
+def test_chat_keeps_who_said_what():
+    room = make_room()
+    ana = next(iter(room.players.values()))
+    message = room.post_chat(ana.id, "  ¿empezamos   ya?  ")
+    assert message.text == "¿empezamos ya?"   # espacios colapsados
+    assert message.player_name == ana.name
+    assert message.color == ana.color
+    assert room.chat == [message]
+
+
+def test_chat_rejects_empty_messages():
+    room = make_room()
+    ana = next(iter(room.players))
+    with pytest.raises(GameError):
+        room.post_chat(ana, "   \n\t  ")
+
+
+def test_chat_drops_control_characters():
+    room = make_room()
+    ana = next(iter(room.players))
+    assert room.post_chat(ana, "hola\x00\x07 mundo").text == "hola mundo"
+
+
+def test_chat_is_rate_limited_per_player():
+    room = make_room()
+    ids = list(room.players)
+    room.post_chat(ids[0], "uno")
+    with pytest.raises(Conflict):
+        room.post_chat(ids[0], "dos")
+    room.post_chat(ids[1], "otro jugador sí puede")  # el límite es por persona
+
+
+def test_chat_history_is_capped():
+    room = make_room()
+    ids = list(room.players)
+    for n in range(settings.chat_history + 10):
+        # Alternamos jugadores para no chocar con el límite de frecuencia.
+        room.players[ids[n % 2]].last_chat_at = 0.0
+        room.post_chat(ids[n % 2], f"mensaje {n}")
+    assert len(room.chat) == settings.chat_history
+    assert room.chat[-1].text == f"mensaje {settings.chat_history + 9}"
+
+
+def test_chat_survives_a_new_round():
+    room = make_room()
+    room.post_chat(room.host_id, "esto no se borra")
+    run_topic_phase(room)
+    assert [m.text for m in room.chat] == ["esto no se borra"]
+
+
+def test_chat_travels_inside_the_room_state():
+    from app.views import room_view
+
+    room = make_room()
+    ana = next(iter(room.players))
+    room.post_chat(ana, "hola a todos")
+    chat = room_view(room, ana)["chat"]
+    assert [m["text"] for m in chat] == ["hola a todos"]
+    assert chat[0]["playerId"] == ana

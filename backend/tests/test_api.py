@@ -250,3 +250,32 @@ def test_a_guest_cannot_cancel_the_reveal(client):
         assert read_until(ws_guest, lambda m: m.get("type") == "error")["code"] == "not_host"
         # El destape sigue su curso pese al intento.
         assert read_until(ws_host, state_with("result"))["room"]["outcome"] in ("win", "lose")
+
+
+def test_chat_reaches_the_other_players(client):
+    host = create_room(client)
+    guest = join(client, host["code"], "Beto")
+
+    with (
+        client.websocket_connect(f"/ws/{host['code']}?token={host['token']}") as ws_host,
+        client.websocket_connect(f"/ws/{host['code']}?token={guest['token']}") as ws_guest,
+    ):
+        read_until(ws_host, lambda m: m.get("type") == "welcome")
+        read_until(ws_guest, lambda m: m.get("type") == "welcome")
+
+        ws_host.send_json({"action": "chat", "text": "¿listos?"})
+        seen = read_until(
+            ws_guest,
+            lambda m: m.get("type") == "state" and m["room"]["chat"],
+        )
+        assert seen["room"]["chat"][-1]["text"] == "¿listos?"
+        assert seen["room"]["chat"][-1]["playerName"] == "Ana"
+        assert seen["event"]["kind"] == "chat"
+
+
+def test_an_empty_chat_message_is_refused(client):
+    host = create_room(client)
+    with client.websocket_connect(f"/ws/{host['code']}?token={host['token']}") as ws:
+        read_until(ws, lambda m: m.get("type") == "welcome")
+        ws.send_json({"action": "chat", "text": "    "})
+        assert read_until(ws, lambda m: m.get("type") == "error")["code"] == "empty_message"

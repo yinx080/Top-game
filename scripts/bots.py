@@ -34,6 +34,15 @@ WORDS_BY_VALUE = [
     "lobo", "jabalí", "caballo", "oso", "elefante", "ballena",
 ]
 
+# Frasecillas para que el chat de la sala no esté muerto mientras pruebas.
+CHATTER = {
+    "proposing": ["va, propongo algo fácil", "esta ronda la clavamos", "¿ideas?", "uf, no se me ocurre nada"],
+    "voting": ["yo voto el mío, obviamente", "cualquiera menos ese", "venga, decidid ya", "me da igual, votad"],
+    "placing": ["ojo con esta", "creo que va por aquí", "no me fío de vosotros", "esta la tengo clarísima"],
+    "win": ["¡toma ya!", "somos un equipazo", "sabía que saldría"],
+    "lose": ["bueno, la próxima", "¿quién ha puesto eso?", "culpa mía, lo admito"],
+}
+
 TOPIC_IDEAS = [
     "Animales, del más pequeño al más grande",
     "Cosas de casa, de menos a más ruidosas",
@@ -120,8 +129,11 @@ class Bot:
         if phase == "lobby":
             self.done.clear()
             self.schedule_round_start()
+            return
 
-        elif phase == "proposing" and not you["proposed"] and self.once("propose"):
+        self.maybe_chatter(phase, room)
+
+        if phase == "proposing" and not you["proposed"] and self.once("propose"):
             # Uno de cada tres bots pasa, para que la papeleta varíe.
             text = None if random.random() < 0.34 else random.choice(TOPIC_IDEAS)
             self.later(self.send(action="propose", text=text))
@@ -135,6 +147,16 @@ class Bot:
 
         elif phase == "result":
             self.schedule_round_start()
+
+    def maybe_chatter(self, phase: str, room: dict) -> None:
+        """De vez en cuando suelta algo por el chat, para que se vea vivo."""
+        key = "win" if room["outcome"] == "win" else "lose" if phase == "result" else phase
+        lines = CHATTER.get(key)
+        if not lines or not self.once(f"chat:{key}"):
+            return
+        if random.random() > 0.55:
+            return
+        self.later(self.send(action="chat", text=random.choice(lines)))
 
     def later(self, coro) -> None:
         """Lanza la acción tras una pausa corta, sin bloquear la lectura."""
