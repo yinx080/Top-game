@@ -1,3 +1,180 @@
+# Top Card
+
+Juego de cartas **cooperativo** para el navegador. Cada jugador recibe una carta
+que nadie más ve, el grupo vota un tema, y por turnos cada uno coloca su carta
+boca abajo donde cree que encaja dentro del top acompañándola de una palabra. Al
+final se destapan una a una: si quedan ordenadas de menor a mayor, gana el grupo
+entero.
+
+React + Three-less CSS 3D en el frontend, FastAPI + WebSocket en el backend, sin
+registro de usuarios ni base de datos.
+
+---
+
+## Cómo ejecutarlo
+
+Necesitas **Python 3.11+** y **Node 20+**.
+
+### Desarrollo
+
+```powershell
+.\dev.ps1          # Windows: abre backend y frontend en dos ventanas
+```
+
+O a mano, en dos terminales:
+
+```bash
+# terminal 1
+cd backend
+pip install -r requirements-dev.txt
+python -m uvicorn app.main:app --reload --port 8000
+
+# terminal 2
+cd frontend
+npm install
+npm run dev        # http://localhost:5173
+```
+
+Vite hace de proxy de `/api` y `/ws` hacia el backend, así que se juega desde
+`http://localhost:5173`.
+
+### Producción (un solo proceso)
+
+```bash
+cd frontend && npm run build          # genera frontend/dist
+cd ../backend && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Si existe `frontend/dist`, FastAPI lo sirve él mismo y todo queda en el puerto
+8000, sin CORS ni proxy de por medio.
+
+### Jugar tú contra bots
+
+Para probar la partida entera sin reunir a cuatro personas, `scripts/bots.py`
+mete jugadores automáticos que proponen tema, votan y colocan su carta según su
+valor (con algo de ruido, para que también fallen).
+
+```bash
+# Creas tú la sala en el navegador y metes bots con su código.
+# Eres el anfitrión: tú decides cuándo empieza cada ronda.
+python scripts/bots.py --code AB3K9P --bots 3
+
+# O que abran ellos la sala y te pasen el enlace: la ronda arranca en
+# cuanto entras, y encadenan las siguientes solas.
+python scripts/bots.py --bots 3
+```
+
+Opciones útiles: `--pace 0.5` para que reaccionen rápido, `--password` si la
+sala es privada, `--base` si el backend no está en el 8000. Se paran con Ctrl+C.
+
+### Comprobaciones
+
+```bash
+cd backend && python -m pytest        # 48 tests: reglas, API y partida por WebSocket
+cd frontend && npm run typecheck
+python scripts/play_demo.py --players 5          # partida completa contra un servidor vivo
+python scripts/play_demo.py --players 5 --smart  # colocando bien: debe ganar
+```
+
+`scripts/build_assets.py` regenera las cartas y la textura a partir de `data/`
+(sólo hace falta si se cambian los originales).
+
+---
+
+## Arquitectura
+
+```
+navegador ──REST──►  /api/rooms…      listar, buscar, crear y entrar en salas
+          ──WS────►  /ws/{código}     todo lo que pasa dentro de la partida
+```
+
+**Backend** (`backend/app/`)
+
+| Fichero | Qué hace |
+| --- | --- |
+| `room.py` | Estado de la sala y máquina de estados de la ronda. Sin E/S: aquí viven todas las reglas. |
+| `store.py` | Salas en memoria, un `asyncio.Lock` por sala, difusión por WebSocket y barrendero de salas muertas. |
+| `views.py` | Serialización **por jugador**. Es donde se garantiza que nadie vea la carta de otro. |
+| `ws.py` | Traduce acciones del cliente a llamadas a `room.py` y difunde el resultado. |
+| `api.py` | REST del menú. |
+| `deck.py`, `topics.py`, `security.py`, `config.py`, `errors.py` | Baraja, fondo de temas, contraseñas y tokens, ajustes, errores de dominio. |
+
+**Frontend** (`frontend/src/`)
+
+| Carpeta | Qué hay |
+| --- | --- |
+| `screens/` | `Menu` (inicio, buscador, ajustes, crear/entrar) y `Room` (la mesa). |
+| `room/` | Piezas de la mesa: carta, cartas colocadas, fichas de jugador, carta en mano, paneles de fase. |
+| `state/` | `useSession` (nombre, ajustes y asientos, persistidos) y `useRoom` (estado vivo de la sala). |
+| `lib/` | Cliente REST, WebSocket con reconexión, enrutado por hash y sonidos sintetizados. |
+| `styles/` | Tokens de diseño y hojas de menú y sala. |
+
+### Ciclo de una ronda
+
+```
+lobby ──(anfitrión)──► proposing ──► voting ──► placing ──► revealing ──► result
+  ▲                                                                          │
+  └──────────────────────── (otra ronda / volver al lobby) ──────────────────┘
+```
+
+Cada fase se cierra sola en cuanto han respondido todos los jugadores
+conectados; el anfitrión puede adelantarla si alguien se demora. El destape lo
+marca el servidor (una carta cada 1,25 s) para que todo el mundo vea el mismo
+volteo en el mismo instante.
+
+---
+
+## Decisiones que el enunciado dejaba abiertas
+
+**Sistema de servidores: un único proceso con las salas en RAM.** No hay cuentas
+ni historial que guardar, una partida dura minutos y el estado de una sala son
+unos pocos kilobytes. Una base de datos sólo añadiría latencia y piezas que
+mantener. Cada sala tiene su propio lock, de modo que mutar el estado y difundir
+el resultado es atómico y todos los clientes reciben la misma secuencia de
+eventos. Si algún día hicieran falta varios procesos, `RoomStore` es la única
+pieza a reimplementar (por ejemplo sobre Redis con pub/sub).
+
+**El estado viaja completo en cada cambio.** Es un objeto pequeño y evita toda
+una familia de errores de sincronización por parches perdidos. Junto a él va un
+evento suelto (`card_placed`, `reveal`, `result`…) que la interfaz usa para saber
+qué animar y qué sonido disparar.
+
+**La baraja es la francesa completa: As = 1 … K = 13.** El enunciado numeraba la
+K como 12; se ha mantenido su intención (el As es la carta más baja y la K la más
+alta) pero con los 13 rangos reales de la baraja. Un valor más sólo reparte mejor
+las cartas entre los jugadores y no cambia ninguna regla. Dos jugadores pueden
+sacar el mismo valor con palos distintos: el empate está contemplado y sigue
+contando como victoria.
+
+**Sin three.js.** El único efecto 3D que pide el diseño es el volteo de la carta,
+y eso lo resuelve CSS con `transform-style: preserve-3d` de forma más ligera,
+accesible y nítida que un lienzo WebGL. Las cartas son las del set de Freepik
+recortadas a PNG con transparencia.
+
+**Reconexión en lugar de expulsión.** Caerse no te echa de la sala: el asiento se
+guarda en el navegador, el WebSocket reintenta con espera creciente y la partida
+sigue. Si alguien no vuelve en 2 minutos, el barrendero le retira; las cartas que
+ya hubiera colocado se quedan en la mesa con su nombre. El anfitrión puede saltar
+el turno de quien se haya caído.
+
+**Sonido sintetizado, no ficheros.** Los efectos se generan con WebAudio: pesan
+cero, no arrastran licencias y suenan exactamente al timbre arcade que pide el
+enunciado.
+
+**Tipografía.** *Bungee* para rótulos (letrero de recreativa) y *Chakra Petch*
+para la interfaz: arcade reconocible sin caer en la fuente de píxeles ilegible.
+
+---
+
+## Créditos
+
+Cartas y textura de madera: <a href="http://www.freepik.com">Designed by
+Macrovector / Freepik</a> (ver `data/*/License*.txt`).
+
+---
+
+# Especificación original
+
 ## Proceso de juego
 
 Se utilizarán las cartas de la baraja francesa, donde el número 1 corresponde al As y el 12 a la K.
@@ -32,4 +209,4 @@ En cada partida se vera el tema arriba a la derecha de la pantalla, el sistema d
 
 ## Apartado artistico
 
-Se han añadido el estilo de las cartas y el tablero de juego al repositorio, usa esos ejemplos para crear toda la parte de diseño de las salas. Aparte todo el juego tendra una estetica arcade eligiendo una tipografia propia de estos tipos de juego pero no muy exagerada. 
+Se han añadido el estilo de las cartas y el tablero de juego al repositorio, usa esos ejemplos para crear toda la parte de diseño de las salas. Aparte todo el juego tendra una estetica arcade eligiendo una tipografia propia de estos tipos de juego pero no muy exagerada.

@@ -1,0 +1,825 @@
+/* ===========================================================================
+   Sala de juego: mesa de tapete sobre madera, ocupando toda la pantalla.
+   =========================================================================== */
+
+.room {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.room__floor {
+  position: absolute;
+  inset: 0;
+  background: url('/art/wood.jpg') center / cover no-repeat;
+  filter: brightness(0.38) saturate(0.8);
+}
+
+.room__floor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 60% at 50% 45%, transparent 30%, rgb(0 0 0 / 62%) 100%);
+}
+
+.room--message {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(180deg, #191627, #0a0810);
+}
+
+.panel--center {
+  width: min(420px, 100%);
+  text-align: center;
+}
+
+.panel--center .stack {
+  align-items: center;
+}
+
+/* --------------------------------------------------------------- la mesa */
+
+.table {
+  position: absolute;
+  inset: 78px 20px 168px;
+  z-index: 1;
+  transition: inset 0.25s ease;
+}
+
+/* Sin carta en mano (lobby, votación, resultado) la mesa se come ese hueco. */
+.room--nohand .table {
+  inset: 78px 20px 26px;
+}
+
+/* El canto de madera usa la misma textura del repositorio, aclarada respecto
+   al suelo para que la mesa se despegue del fondo. */
+.table__rim {
+  height: 100%;
+  padding: clamp(9px, 1.3vw, 18px);
+  border-radius: clamp(34px, 5.5vw, 84px);
+  background: url('/art/wood.jpg') center / cover no-repeat;
+  box-shadow:
+    0 26px 60px rgb(0 0 0 / 55%),
+    inset 0 2px 0 rgb(255 255 255 / 24%),
+    inset 0 -7px 16px rgb(0 0 0 / 48%);
+}
+
+.table__felt {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: clamp(8px, 1.4vh, 18px);
+  height: 100%;
+  padding: clamp(12px, 2vh, 22px) clamp(12px, 2vw, 26px);
+  border-radius: clamp(26px, 4.4vw, 68px);
+  background: radial-gradient(ellipse 72% 82% at 50% 36%, #15864e, #0c6339 46%, #063720 100%);
+  box-shadow:
+    inset 0 0 0 3px rgb(245 185 59 / 20%),
+    inset 0 16px 44px rgb(0 0 0 / 42%);
+  overflow: hidden;
+}
+
+.table__brand {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: clamp(38px, 9vw, 132px);
+  letter-spacing: 0.12em;
+  color: rgb(255 255 255 / 4.5%);
+  pointer-events: none;
+  user-select: none;
+}
+
+.table__seats,
+.table__play,
+.table__phase {
+  position: relative;
+  z-index: 1;
+}
+
+.table__play {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+}
+
+.table__phase {
+  display: flex;
+  justify-content: center;
+}
+
+.table__empty {
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  text-align: center;
+}
+
+.table__emptyText {
+  font-size: 14px;
+  color: rgb(255 255 255 / 52%);
+}
+
+/* ---------------------------------------------------------- cartas en mesa */
+
+.tablecards {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 16px;
+  max-width: 100%;
+  /* Hueco abajo para la chapa del valor y arriba para el cartel de respuesta:
+     `overflow-x: auto` obliga a que el eje Y también recorte. */
+  padding: 10px 8px 24px;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
+}
+
+.placed {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.placed__answer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: calc(var(--card-w) + 22px);
+  padding: 5px 7px;
+  border: 2px solid var(--pc);
+  border-radius: 9px;
+  background: rgb(4 18 11 / 82%);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 38%);
+}
+
+.placed__word {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.placed__owner {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pc);
+}
+
+.placed__card {
+  position: relative;
+  border-radius: 10px;
+  transition: box-shadow 0.25s ease;
+}
+
+.placed__card.is-break {
+  box-shadow: 0 0 0 3px var(--red), 0 0 26px rgb(224 78 57 / 60%);
+}
+
+.placed__value {
+  position: absolute;
+  bottom: -11px;
+  left: 50%;
+  translate: -50% 0;
+  min-width: 26px;
+  padding: 1px 6px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 12px;
+  text-align: center;
+}
+
+.placed__check {
+  position: absolute;
+  right: -19px;
+  bottom: calc(var(--card-w) * 0.62);
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgb(4 10 8 / 88%);
+  font-size: 13px;
+  font-weight: 700;
+  z-index: 2;
+}
+
+.placed__check.is-ok {
+  color: #7ee88b;
+  box-shadow: 0 0 0 2px rgb(126 232 139 / 45%);
+}
+
+.placed__check.is-bad {
+  color: #ff8770;
+  box-shadow: 0 0 0 2px rgb(255 135 112 / 55%);
+}
+
+/* ----------------------------------------------------------------- huecos */
+
+.slot {
+  align-self: flex-end;
+  width: 16px;
+  height: calc(var(--card-w, 110px) * 1.42);
+  border: 2px dashed rgb(245 185 59 / 60%);
+  border-radius: 9px;
+  background: rgb(245 185 59 / 9%);
+  color: var(--gold);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  animation: slotBreathe 1.8s ease-in-out infinite;
+  transition:
+    width 0.18s var(--ease-pop),
+    background 0.16s ease;
+}
+
+.slot:hover,
+.slot:focus-visible {
+  width: calc(var(--card-w, 110px) * 0.58);
+  background: rgb(245 185 59 / 26%);
+}
+
+.slot__mark {
+  font-family: var(--font-display);
+  font-size: 15px;
+}
+
+.slot--first {
+  display: inline-flex;
+  gap: 8px;
+  width: auto;
+  height: auto;
+  padding: 8px 14px;
+  animation: none;
+  font-weight: 700;
+}
+
+@keyframes slotBreathe {
+  0%,
+  100% {
+    border-color: rgb(245 185 59 / 40%);
+  }
+  50% {
+    border-color: rgb(245 185 59 / 95%);
+  }
+}
+
+/* ------------------------------------------------------------------ carta */
+
+.pcard {
+  position: relative;
+  perspective: 900px;
+  flex-shrink: 0;
+}
+
+.pcard__inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.25, 1);
+}
+
+.pcard[data-face-up='true'] .pcard__inner {
+  transform: rotateY(180deg);
+}
+
+.pcard--instant .pcard__inner {
+  transition: none;
+}
+
+.pcard__side {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  filter: drop-shadow(0 8px 14px rgb(0 0 0 / 45%));
+}
+
+.pcard__side--front {
+  transform: rotateY(180deg);
+}
+
+/* --------------------------------------------------------------- jugadores */
+
+.seats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.seat {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 11px 4px 9px;
+  border: 2px solid rgb(255 255 255 / 12%);
+  border-radius: 999px;
+  background: rgb(3 16 10 / 70%);
+  font-size: 13px;
+  font-weight: 600;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.seat--me {
+  border-color: rgb(255 255 255 / 34%);
+}
+
+.seat--turn {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgb(245 185 59 / 20%);
+}
+
+.seat--offline {
+  opacity: 0.48;
+}
+
+.seat__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--pc);
+  box-shadow: 0 0 9px var(--pc);
+}
+
+.seat__name {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seat__badges {
+  display: flex;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.seat__badge--ok {
+  color: #7ee88b;
+}
+
+.seat__badge--warn {
+  color: var(--gold);
+}
+
+.seat__kick {
+  padding: 0 5px;
+  box-shadow: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.seat:hover .seat__kick,
+.seat__kick:focus-visible {
+  opacity: 1;
+}
+
+/* En táctil no hay hover: el botón se queda visible pero discreto. */
+@media (hover: none) {
+  .seat__kick {
+    opacity: 0.55;
+  }
+}
+
+/* ------------------------------------------------------------ fase actual */
+
+.phase {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(760px, 100%);
+  padding: 14px 18px;
+  border: 2px solid rgb(255 255 255 / 12%);
+  border-radius: 16px;
+  background: rgb(4 14 9 / 78%);
+  backdrop-filter: blur(4px);
+  text-align: center;
+}
+
+.phase__code {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 5.5vw, 52px);
+  letter-spacing: 0.2em;
+  color: var(--gold);
+  text-shadow: 3px 3px 0 rgb(0 0 0 / 45%);
+}
+
+.phase__lead {
+  font-size: 15px;
+}
+
+.phase__form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+.phase__form .input {
+  flex: 1 1 260px;
+}
+
+.phase--result.is-win {
+  border-color: #58c463;
+  box-shadow: 0 0 46px rgb(88 196 99 / 26%);
+}
+
+.phase--result.is-lose {
+  border-color: var(--red);
+  box-shadow: 0 0 46px rgb(224 78 57 / 26%);
+}
+
+.phase__verdict {
+  font-size: clamp(22px, 4.2vw, 38px);
+}
+
+.phase--result.is-win .phase__verdict {
+  color: #8fe89a;
+}
+
+.phase--result.is-lose .phase__verdict {
+  color: #ff9a86;
+}
+
+.phase__sequence {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.phase__num {
+  min-width: 30px;
+  padding: 2px 8px;
+  border: 2px solid rgb(255 255 255 / 18%);
+  border-radius: 8px;
+  background: rgb(0 0 0 / 35%);
+  font-family: var(--font-display);
+  font-size: 13px;
+}
+
+.phase__num.is-break {
+  border-color: var(--red);
+  color: #ff9a86;
+}
+
+/* -------------------------------------------------------------- votación */
+
+.ballot {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ballot__option {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 10px 12px;
+  border: 2px solid rgb(255 255 255 / 12%);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 5%);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.14s ease,
+    background 0.14s ease,
+    transform 0.14s var(--ease-pop);
+}
+
+.ballot__option:hover:not(:disabled) {
+  border-color: var(--gold);
+  background: rgb(245 185 59 / 12%);
+  transform: translateY(-2px);
+}
+
+.ballot__option:disabled {
+  cursor: default;
+}
+
+.ballot__option.is-chosen {
+  border-color: var(--gold);
+  background: rgb(245 185 59 / 20%);
+}
+
+.ballot__text {
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.ballot__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ballot__voters {
+  display: flex;
+  gap: 3px;
+}
+
+.ballot__voter {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px currentcolor;
+}
+
+/* --------------------------------------------------------- carta en mano */
+
+.hand {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  z-index: 4;
+  translate: -50% 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  width: min(680px, calc(100vw - 32px));
+  padding: 12px 18px;
+  border: 2px solid var(--night-line);
+  border-radius: 18px;
+  background: rgb(8 7 14 / 82%);
+  backdrop-filter: blur(6px);
+  box-shadow: var(--shadow-drop);
+}
+
+.hand--active {
+  border-color: var(--gold);
+  box-shadow: 0 0 34px rgb(245 185 59 / 22%);
+}
+
+.hand--note {
+  justify-content: center;
+  width: auto;
+  padding: 10px 20px;
+}
+
+.hand__note {
+  font-weight: 600;
+  color: var(--paper-dim);
+}
+
+.hand__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.hand__label {
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.hand__controls {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding-bottom: 6px;
+}
+
+.hand__input {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.hand__hint {
+  font-size: 13px;
+  color: var(--paper-dim);
+}
+
+.hand__hint.is-ready {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ barras HUD */
+
+.roombar {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: min(46vw, calc(100vw - 32px));
+  padding: 8px 14px;
+  border: 2px solid var(--night-line);
+  border-radius: 13px;
+  background: rgb(8 7 14 / 82%);
+  backdrop-filter: blur(6px);
+}
+
+.roombar__id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.roombar__name {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roombar__code {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+}
+
+.roombar__copy {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--paper-dim);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.roombar__code:hover .roombar__copy,
+.roombar__code:focus-visible .roombar__copy {
+  opacity: 1;
+}
+
+.roombar__tools {
+  display: flex;
+  gap: 6px;
+}
+
+.topic {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  max-width: min(380px, 44vw);
+  padding: 9px 14px;
+  border: 2px solid var(--gold);
+  border-radius: 13px;
+  background: rgb(8 7 14 / 86%);
+  backdrop-filter: blur(6px);
+  text-align: right;
+}
+
+.topic--empty {
+  border-color: var(--night-line);
+}
+
+.topic__label {
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.topic__text {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.topic__author {
+  font-size: 11px;
+  color: var(--paper-dim);
+}
+
+/* ------------------------------------------------------------------ avisos */
+
+.room__nudge {
+  position: absolute;
+  bottom: 14px;
+  left: 16px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border: 2px solid var(--red);
+  border-radius: 12px;
+  background: rgb(8 7 14 / 90%);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.room__offline {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 30;
+  translate: -50% -50%;
+  padding: 12px 22px;
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  background: rgb(8 7 14 / 94%);
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------- estrecho */
+
+@media (max-width: 900px) {
+  .table {
+    inset: 128px 10px 170px;
+  }
+
+  .roombar,
+  .topic {
+    top: 10px;
+  }
+
+  .roombar {
+    left: 10px;
+    max-width: calc(100vw - 20px);
+  }
+
+  .topic {
+    top: 66px;
+    right: 10px;
+    max-width: calc(100vw - 20px);
+  }
+
+  .roombar .logo {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .hand {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    bottom: 10px;
+  }
+
+  .hand__card {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .table {
+    inset: 124px 6px 226px;
+  }
+
+  .table__brand {
+    display: none;
+  }
+}
