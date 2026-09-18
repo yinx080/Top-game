@@ -12,4 +12,4 @@ Se utilizarán las cartas de la baraja francesa, donde el número 1 corresponde 
 
 1. Los jugadores no pueden saber las cartas del resto.
 2. Sólo se desvelan las cartas una vez estén todas colocadas.
-3. No se puede cambiar la posición de una carta una vez esté colocada.
+3. No se puede cambiar la posición de una carta una vez termine el turno.
