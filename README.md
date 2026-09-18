@@ -29,3 +29,7 @@ El diseño se realizara en react y si se requiere diseño avanzado tambien three
 Cada jugador vera la mesa en su pantalla, pero tambien vera un modelo en 2d de la carta que le ha tocado de manera que se imite la posición de tener una carta en la mano, cuando el jugador coloque la carta, el jugador solo vera la mesa con las cartas boca abajo.
 
 En cada partida se vera el tema arriba a la derecha de la pantalla, el sistema de temas sera un poco diferente, el juego puede tener temas aleatorios predeterminados, pero en cada sala los jugadores podran proponer un tema para la siguiente ronda y cuando propongan uno (o no), entre todos votan el tema de la siguiente ronda entre los propuestos. Si un jugador propone un tema y este gana la votación, el tema se guardará entre los temas aleatorios que se propondrán en las siguientes partidas de esa sala.
+
+## Apartado artistico
+
+Se han añadido el estilo de las cartas y el tablero de juego al repositorio, usa esos ejemplos para crear toda la parte de diseño de las salas. Aparte todo el juego tendra una estetica arcade eligiendo una tipografia propia de estos tipos de juego pero no muy exagerada. 
