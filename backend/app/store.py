@@ -24,7 +24,7 @@ from fastapi import WebSocket
 
 from .config import settings
 from .errors import Conflict, NotFound
-from .room import Phase, Room
+from .room import Phase, Room, mono
 from .security import new_room_code
 from .views import room_summary, room_view
 
@@ -42,7 +42,7 @@ class RoomRuntime:
     reveal_task: asyncio.Task | None = None
     phase_task: asyncio.Task | None = None
     scheduled_deadline: float | None = None
-    empty_since: float | None = field(default_factory=time.time)
+    empty_since: float | None = field(default_factory=mono)
 
     # ------------------------------------------------------------- conexiones
 
@@ -60,7 +60,7 @@ class RoomRuntime:
             return False
         del self.sockets[player_id]
         if not self.sockets:
-            self.empty_since = time.time()
+            self.empty_since = mono()
         return True
 
     # --------------------------------------------------------------- difusión
@@ -95,8 +95,16 @@ class RoomRuntime:
     # ------------------------------------------------------- ritmo del destape
 
     def schedule_phase_timer(self) -> None:
+        """Deja armado un temporizador que case con el plazo actual de la sala.
+
+        Comprueba también que la tarea siga viva: si la anterior murió (por un
+        fallo, o porque terminó sin que el plazo cambiase) hay que rearmarla,
+        porque si no la sala se queda sin nadie que cierre la fase y el turno
+        no avanza nunca.
+        """
         deadline = self.room.phase_deadline
-        if deadline == self.scheduled_deadline:
+        alive = self.phase_task is not None and not self.phase_task.done()
+        if deadline == self.scheduled_deadline and (deadline is None or alive):
             return
         if self.phase_task and self.phase_task is not asyncio.current_task():
             self.phase_task.cancel()
@@ -104,26 +112,50 @@ class RoomRuntime:
         self.phase_task = asyncio.create_task(self._run_phase_timer(deadline)) if deadline else None
 
     async def _run_phase_timer(self, deadline: float) -> None:
-        await asyncio.sleep(max(0, deadline - time.time()))
-        async with self.lock:
-            if self.room.phase_deadline != deadline:
-                return
-            if self.room.phase is Phase.PROPOSING:
-                self.room.close_proposals()
-                event = {"kind": "voting_open"}
-            elif self.room.phase is Phase.VOTING:
-                self.room.close_voting()
-                event = ({"kind": "topic_chosen", "topic": self.room.topic}
-                         if self.room.phase is Phase.PLACING else {"kind": "round_aborted"})
-            elif self.room.phase is Phase.PLACING:
-                player = self.room.players.get(self.room.current_player_id)
-                self.room.timeout_turn()
-                event = {"kind": "turn_timeout", "name": player.name if player else "Jugador"}
-                if self.room.phase is Phase.REVEALING:
-                    self.schedule_reveal()
-            else:
-                return
-            await self.broadcast(event)
+        try:
+            # `asyncio.sleep` y el plazo comparten el reloj monotónico, pero se
+            # vuelve a comprobar de todos modos: dormir "lo que falta" puede
+            # quedarse corto por redondeo, y despertar antes de tiempo dejaba
+            # la fase sin cerrar y sin temporizador.
+            while True:
+                remaining = deadline - mono()
+                if remaining <= 0:
+                    break
+                await asyncio.sleep(remaining)
+            async with self.lock:
+                if self.room.phase_deadline != deadline:
+                    return
+                if self.room.phase is Phase.PROPOSING:
+                    self.room.close_proposals()
+                    event = {"kind": "voting_open"}
+                elif self.room.phase is Phase.VOTING:
+                    self.room.close_voting()
+                    event = ({"kind": "topic_chosen", "topic": self.room.topic}
+                             if self.room.phase is Phase.PLACING else {"kind": "round_aborted"})
+                elif self.room.phase is Phase.PLACING:
+                    player = self.room.players.get(self.room.current_player_id)
+                    self.room.timeout_turn()
+                    # Su valor de retorno dice si se cerró la colocación, no si
+                    # el turno venció: eso se mira por el plazo, que `timeout_turn`
+                    # siempre mueve (o deja en None al cambiar de fase) cuando actúa.
+                    if self.room.phase_deadline == deadline:
+                        # No había vencido del todo: rearma en lugar de anunciar
+                        # un timeout que no ha ocurrido.
+                        self.scheduled_deadline = None
+                        self.schedule_phase_timer()
+                        return
+                    event = {"kind": "turn_timeout", "name": player.name if player else "Jugador"}
+                    if self.room.phase is Phase.REVEALING:
+                        self.schedule_reveal()
+                else:
+                    return
+                await self.broadcast(event)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001
+            # Que un fallo puntual no deje la sala congelada: el barrendero
+            # vuelve a armar el temporizador en la siguiente pasada.
+            log.exception("fallo en el temporizador de la sala %s", self.room.code)
 
     def cancel_timers(self) -> None:
         self.cancel_reveal()
@@ -276,7 +308,7 @@ class RoomStore:
 
     async def sweep(self, now: float | None = None) -> None:
         """Expulsa jugadores caídos hace rato y tira las salas abandonadas."""
-        now = now or time.time()
+        now = now or mono()
         for code, runtime in list(self._rooms.items()):
             async with runtime.lock:
                 room = runtime.room
@@ -306,6 +338,15 @@ class RoomStore:
                     if room.phase is Phase.REVEALING:
                         runtime.schedule_reveal()
                     await runtime.broadcast({"kind": "players_changed"})
+                else:
+                    # Red de seguridad: si una sala se quedó sin temporizador
+                    # (un fallo inesperado, una cancelación que no se rearmó),
+                    # aquí vuelve a armarse en lugar de dejar el turno colgado.
+                    runtime.schedule_phase_timer()
+                    if room.phase is Phase.REVEALING:
+                        # Lo mismo para el destape: retomaría por la carta que
+                        # tocase, `reveal_index` no se pierde.
+                        runtime.schedule_reveal()
 
 
 store = RoomStore()

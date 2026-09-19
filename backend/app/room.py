@@ -20,6 +20,20 @@ from .topics import sample_topics
 PALETTE_SIZE = 10
 
 
+def mono() -> float:
+    """Reloj de los plazos de fase y de los cooldowns.
+
+    Monotónico a propósito: es el mismo que usa `asyncio.sleep`, así que el
+    temporizador del runtime (`store.py`) y las comprobaciones de plazo de aquí
+    no pueden discrepar. Con `time.time()` bastaba un ajuste del reloj del
+    sistema, o el redondeo entre ambos relojes, para que un turno venciera
+    según un reloj y no según el otro: la ronda se quedaba sin temporizador y
+    el jugador ya no podía colocar. `time.time()` se reserva para las marcas
+    que se muestran o se comparan entre procesos (fechas de entrada, chat).
+    """
+    return time.monotonic()
+
+
 class Phase(str, Enum):
     LOBBY = "lobby"           # esperando jugadores
     PROPOSING = "proposing"   # cada jugador propone un tema (o pasa)
@@ -101,7 +115,10 @@ class Room:
     max_players: int
     host_id: str = ""
     created_at: float = field(default_factory=time.time)
-    updated_at: float = field(default_factory=time.time)
+    # Se compara sólo como intervalo (sala inactiva), así que va en el
+    # reloj monotónico; `created_at` se muestra al cliente y sigue siendo
+    # una fecha real.
+    updated_at: float = field(default_factory=mono)
 
     players: dict[str, Player] = field(default_factory=dict)
     phase: Phase = Phase.LOBBY
@@ -226,7 +243,7 @@ class Room:
             # cuenta para arrancar la ronda y el barrendero lo retira si no
             # llega nunca.
             connected=False,
-            disconnected_at=time.time(),
+            disconnected_at=mono(),
         )
         self.players[player.id] = player
         if not self.host_id:
@@ -251,7 +268,7 @@ class Room:
             self.host_id = successor.id if successor else ""
         self._settle_after_departure()
         if was_current and self.phase is Phase.PLACING:
-            self.phase_deadline = time.time() + self.placement_seconds
+            self.phase_deadline = mono() + self.placement_seconds
         self.touch()
 
     def _settle_after_departure(self) -> None:
@@ -282,13 +299,13 @@ class Room:
         if player is None:
             return
         player.connected = connected
-        player.disconnected_at = None if connected else time.time()
+        player.disconnected_at = None if connected else mono()
         if not connected:
             self.advance_if_everyone_acted()
         self.touch()
 
     def touch(self) -> None:
-        self.updated_at = time.time()
+        self.updated_at = mono()
 
     # ------------------------------------------------------------- ciclo ronda
 
@@ -307,7 +324,7 @@ class Room:
             )
         self._reset_round()
         self.phase = Phase.PROPOSING
-        self.phase_deadline = time.time() + self.proposal_seconds
+        self.phase_deadline = mono() + self.proposal_seconds
         self.round_no += 1
         self.touch()
 
@@ -412,7 +429,7 @@ class Room:
         for i, candidate in enumerate(self.candidates):
             candidate.id = f"c{i}"
         self.phase = Phase.VOTING
-        self.phase_deadline = time.time() + self.vote_seconds
+        self.phase_deadline = mono() + self.vote_seconds
         self.touch()
 
     def vote_topic(self, player_id: str, candidate_id: str) -> Phase:
@@ -479,7 +496,7 @@ class Room:
         self.turn_index = 0
         self.table = []
         self.phase = Phase.PLACING
-        self.phase_deadline = time.time() + self.placement_seconds
+        self.phase_deadline = mono() + self.placement_seconds
         self.touch()
 
     def place_card(self, player_id: str, slot: int, answer: str) -> bool:
@@ -493,7 +510,7 @@ class Room:
         player = self.player_or_404(player_id)
         if self.current_player_id != player_id:
             raise Conflict("not_your_turn", "No es tu turno.")
-        if self.phase_deadline is not None and time.time() >= self.phase_deadline:
+        if self.phase_deadline is not None and mono() >= self.phase_deadline:
             raise Conflict("turn_expired", "Se ha agotado el tiempo de tu turno.")
         if player.card is None or player.placed:
             raise Conflict("no_card", "No tienes carta que colocar.")
@@ -515,7 +532,7 @@ class Room:
         )
         player.placed = True
         self.turn_index += 1
-        self.phase_deadline = time.time() + self.placement_seconds
+        self.phase_deadline = mono() + self.placement_seconds
         self.touch()
         return self._close_placing_if_done()
 
@@ -535,7 +552,7 @@ class Room:
     def timeout_turn(self) -> bool:
         """Salta exclusivamente el turno cuyo plazo ha vencido."""
         if (self.phase is not Phase.PLACING or self.phase_deadline is None
-                or time.time() < self.phase_deadline):
+                or mono() < self.phase_deadline):
             return False
         return self._skip_current_turn(timed_out=True)
 
@@ -546,7 +563,7 @@ class Room:
             target.card = None
             target.timed_out = timed_out
         self.turn_order.pop(self.turn_index)
-        self.phase_deadline = time.time() + self.placement_seconds
+        self.phase_deadline = mono() + self.placement_seconds
         self.touch()
         return self._close_placing_if_done()
 
@@ -629,7 +646,7 @@ class Room:
             # Una cita plana sobrevive al recorte del historial sin anidar respuestas.
             reply_to = {"id": original.id, "playerName": original.player_name, "text": original.text}
 
-        now = time.time()
+        now = mono()
         if now - player.last_chat_at < settings.chat_cooldown:
             raise Conflict("too_fast", "Espera un momento entre mensaje y mensaje.")
         player.last_chat_at = now
