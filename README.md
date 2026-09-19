@@ -224,14 +224,14 @@ réplicas: `numReplicas` se queda en 1).
 
 ```bash
 docker build -t topcard .
-docker run --rm -p 8000:8000 topcard    # http://localhost:8000
+docker run --rm -p 8080:8080 topcard    # http://localhost:8080
 # o bien
 docker compose up --build
 ```
 
 En Railway basta con conectar el repositorio: `railway.json` fija el builder
 Dockerfile y el healthcheck en `/api/health`. Railway inyecta `$PORT` y el
-contenedor lo respeta (`8000` por defecto en local).
+contenedor lo respeta (`8080` por defecto en local).
 
 Variables opcionales: `TOPCARD_CORS_ORIGINS`, `TOPCARD_MIN_PLAYERS`,
 `TOPCARD_MAX_PLAYERS`, `TOPCARD_REVEAL_STEP`, `TOPCARD_DISCONNECT_GRACE`.
