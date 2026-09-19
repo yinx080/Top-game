@@ -8,14 +8,14 @@ import { HandZone } from '../room/HandZone'
 import { RoomBar, TopicBanner } from '../room/RoomBar'
 import { Seats } from '../room/Seats'
 import { TableCards } from '../room/TableCards'
-import { LobbyPanel, ProposePanel, ResultPanel, RevealPanel, VotePanel } from '../room/panels'
+import { LobbyPanel, PhaseTimer, ProposePanel, ResultPanel, RevealPanel, TimerSettings, VotePanel } from '../room/panels'
 import { useRoom } from '../state/useRoom'
 import { useSession } from '../state/useSession'
 import type { Seat } from '../types'
 import '../styles/room.css'
 
 export function Room({ seat }: { seat: Seat }) {
-  const { room, status, fatal, connect, disconnect, leave, send, toasts } = useRoom()
+  const { room, receivedAt, status, fatal, connect, disconnect, leave, send, toasts } = useRoom()
   const reducedMotion = useSession((state) => state.settings.reducedMotion)
   const dropSeat = useSession((state) => state.dropSeat)
   const [answer, setAnswer] = useState('')
@@ -32,8 +32,8 @@ export function Room({ seat }: { seat: Seat }) {
 
   // La palabra sólo vale para la carta que estás colocando ahora mismo.
   useEffect(() => {
-    if (room?.you?.hasPlaced || room?.phase !== 'placing') setAnswer('')
-  }, [room?.you?.hasPlaced, room?.phase])
+    if (room?.you?.hasPlaced || room?.you?.timedOut || room?.phase !== 'placing') setAnswer('')
+  }, [room?.you?.hasPlaced, room?.you?.timedOut, room?.phase, room?.round])
 
   if (fatal) {
     return (
@@ -86,8 +86,33 @@ export function Room({ seat }: { seat: Seat }) {
     <div className={`room ${showHand ? '' : 'room--nohand'}`}>
       <div className="room__floor" aria-hidden="true" />
 
+      <header className="room-header">
       <RoomBar room={room} onLeave={leaveRoom} />
+      <aside className="room-stats" aria-label="Estadísticas de la sala">
+        <span>🏆 {room.wins} victorias</span>
+        <span>🔥 Racha: {room.winStreak}</span>
+        <span>Récord: {room.bestStreak}</span>
+        <details className="hall-of-shame">
+          <summary>Hall of shame · {room.hallOfShame.length}</summary>
+          <div className="hall-of-shame__body">
+            <strong>Fallos acumulados en esta sala</strong>
+            {room.hallOfShame.length === 0 ? <p>Todavía nadie ha fallado.</p> : (
+              <ol>{room.hallOfShame.map((player) => (
+                <li key={player.playerId}><span style={{ color: `var(--p${player.color})` }}>{player.name}</span> · {player.failures}</li>
+              ))}</ol>
+            )}
+          </div>
+        </details>
+      </aside>
+      </header>
       <TopicBanner room={room} />
+      <PhaseTimer room={room} receivedAt={receivedAt} />
+      {room.phase === 'placing' && you?.isHost && (
+        <details className="turn-timer-settings">
+          <summary>Ajustar tiempo de colocación · {room.placementSeconds} s</summary>
+          <TimerSettings room={room} send={send} />
+        </details>
+      )}
 
       <div className="table">
         <div className="table__rim">
@@ -112,7 +137,6 @@ export function Room({ seat }: { seat: Seat }) {
                   reducedMotion={reducedMotion}
                   onPlace={(slot) => {
                     send({ action: 'place', slot, answer: answer.trim() })
-                    setAnswer('')
                   }}
                 />
               )}

@@ -71,9 +71,17 @@ body {
 
 button,
 input,
+textarea,
 select {
   font: inherit;
   color: inherit;
+}
+
+textarea.input { resize: vertical; min-height: 60px; }
+
+@media (pointer: coarse) {
+  .btn, input, select, textarea { min-height: 44px; }
+  input, select, textarea { font-size: 16px; }
 }
 
 h1,

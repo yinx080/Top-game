@@ -11,11 +11,15 @@
 
   position: fixed;
   inset: 0;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 16px calc(var(--hand-space) + 24px);
+  overflow-y: auto;
 }
 
 .room__floor {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: url('/art/wood.jpg') center / cover no-repeat;
   filter: brightness(0.38) saturate(0.8);
@@ -47,8 +51,9 @@
 /* --------------------------------------------------------------- la mesa */
 
 .table {
-  position: absolute;
-  inset: 78px 20px var(--hand-space);
+  position: relative;
+  flex: 1 0 440px;
+  min-height: 440px;
   z-index: 1;
   transition: inset 0.25s ease;
 }
@@ -78,7 +83,7 @@
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: clamp(8px, 1.4vh, 18px);
-  height: 100%;
+  min-height: 100%;
   padding: clamp(12px, 2vh, 22px) clamp(12px, 2vw, 26px);
   border-radius: clamp(26px, 4.4vw, 68px);
   background: radial-gradient(ellipse 72% 82% at 50% 36%, #15864e, #0c6339 46%, #063720 100%);
@@ -112,10 +117,13 @@
   display: grid;
   place-items: center;
   min-height: 0;
+  min-width: 0;
 }
 
 .table__phase {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
 }
 
@@ -136,7 +144,7 @@
 .tablecards {
   display: flex;
   align-items: flex-end;
-  justify-content: center;
+  justify-content: safe center;
   gap: 16px;
   max-width: 100%;
   /* Hueco abajo para la chapa del valor y arriba para el cartel de respuesta:
@@ -429,8 +437,9 @@
 }
 
 .phase__code {
-  font-family: var(--font-display);
-  font-size: clamp(28px, 5.5vw, 52px);
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: clamp(34px, 6vw, 64px);
+  font-weight: 800;
   letter-spacing: 0.2em;
   color: var(--gold);
   text-shadow: 3px 3px 0 rgb(0 0 0 / 45%);
@@ -438,6 +447,7 @@
 
 .phase__lead {
   font-size: 15px;
+  overflow-wrap: anywhere;
 }
 
 .phase__form {
@@ -543,6 +553,7 @@
 .ballot__text {
   font-weight: 700;
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .ballot__meta {
@@ -567,7 +578,7 @@
 /* --------------------------------------------------------- carta en mano */
 
 .hand {
-  position: absolute;
+  position: fixed;
   left: 50%;
   bottom: 14px;
   z-index: 4;
@@ -644,14 +655,12 @@
 /* ------------------------------------------------------------ barras HUD */
 
 .roombar {
-  position: absolute;
-  top: 14px;
-  left: 16px;
+  position: relative;
   z-index: 5;
   display: flex;
   align-items: center;
   gap: 14px;
-  max-width: min(46vw, calc(100vw - 32px));
+  max-width: 100%;
   padding: 8px 14px;
   border: 2px solid var(--night-line);
   border-radius: 13px;
@@ -680,9 +689,10 @@
   border: 0;
   background: none;
   color: var(--gold);
-  font-family: var(--font-display);
-  font-size: 12px;
-  letter-spacing: 0.18em;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   cursor: pointer;
 }
 
@@ -706,21 +716,20 @@
 }
 
 .topic {
-  position: absolute;
-  top: 14px;
-  right: 16px;
+  position: relative;
   z-index: 5;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   gap: 1px;
-  max-width: min(380px, 44vw);
+  width: min(100%, 980px);
+  align-self: center;
   padding: 9px 14px;
   border: 2px solid var(--gold);
   border-radius: 13px;
   background: rgb(8 7 14 / 86%);
   backdrop-filter: blur(6px);
-  text-align: right;
+  text-align: center;
 }
 
 .topic--empty {
@@ -736,7 +745,7 @@
 }
 
 .topic__text {
-  font-size: 15px;
+  font-size: clamp(22px, 2.8vw, 36px);
   font-weight: 700;
   line-height: 1.2;
 }
@@ -793,7 +802,7 @@
 /* -------------------------------------------------------------------- chat */
 
 .chat {
-  position: absolute;
+  position: fixed;
   right: 16px;
   bottom: var(--chat-bottom);
   z-index: 8;
@@ -885,6 +894,7 @@
 .chat__log {
   display: flex;
   flex: 1;
+  min-height: 0;
   flex-direction: column;
   gap: 7px;
   margin: 0;
@@ -904,6 +914,7 @@
 .chat__msg {
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   gap: 1px;
   max-width: 88%;
   padding: 6px 10px;
@@ -980,29 +991,9 @@
     --hand-space: 170px;
   }
 
-  .table {
-    inset: 128px 10px var(--hand-space);
-  }
-
   .room__nudge {
     top: auto;
     bottom: calc(var(--hand-space) + 10px);
-  }
-
-  .roombar,
-  .topic {
-    top: 10px;
-  }
-
-  .roombar {
-    left: 10px;
-    max-width: calc(100vw - 20px);
-  }
-
-  .topic {
-    top: 66px;
-    right: 10px;
-    max-width: calc(100vw - 20px);
   }
 
   .roombar .logo {
@@ -1027,10 +1018,6 @@
 
   .room {
     --hand-space: 226px;
-  }
-
-  .table {
-    inset: 124px 6px var(--hand-space);
   }
 
   .table__brand {
@@ -1058,4 +1045,143 @@
   .room__nudge {
     bottom: calc(var(--hand-space) + 74px);
   }
+}
+
+.room-header { position: relative; z-index: 6; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.room-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px; border-radius: 12px; background: rgb(8 7 14 / 88%); font-size: 13px; }
+.hall-of-shame { position: relative; }
+.hall-of-shame summary { cursor: pointer; color: var(--gold); }
+.hall-of-shame__body { position: absolute; right: 0; top: 28px; width: min(300px, 80vw); max-height: 260px; overflow-y: auto; padding: 16px; border: 1px solid var(--gold); border-radius: 12px; background: #100e1a; }
+.hall-of-shame__body li { padding: 4px 0; overflow-wrap: anywhere; }
+.timer-settings { display: flex; flex-wrap: wrap; justify-content: center; align-items: end; gap: 10px; }
+.timer-settings label { display: grid; gap: 4px; text-align: left; font-size: 12px; }
+.timer-settings input { width: 100px; padding: 6px 10px; }
+.turn-timer-settings { position: relative; z-index: 3; flex-shrink: 0; align-self: center; max-width: 100%; padding: 6px 12px; border-radius: 10px; background: rgb(8 7 14 / 92%); font-size: 12px; }
+.turn-timer-settings summary { cursor: pointer; color: var(--gold); }
+.turn-timer-settings[open] summary { margin-bottom: 8px; }
+.timer-settings__note { flex-basis: 100%; text-align: center; }
+.phase-timer { position: relative; z-index: 2; flex-shrink: 0; text-align: center; color: var(--gold); font-weight: 700; font-variant-numeric: tabular-nums; }
+.phase-timer--urgent { color: #ff9a86; }
+.topic__text { overflow-wrap: anywhere; }
+
+.room-header, .topic { flex-shrink: 0; }
+.table__phase > div { width: 100%; display: flex; justify-content: center; min-width: 0; }
+.hand__counter { align-self: flex-end; font-size: 11px; }
+.chat__message-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.chat__reply { border: 0; border-radius: 6px; padding: 2px 8px; background: transparent; color: var(--gold); cursor: pointer; font-size: 18px; flex-shrink: 0; }
+.chat__reply:hover { background: rgb(255 255 255 / 12%); }
+.chat__quote { display: grid; gap: 2px; margin: 4px 0; padding: 6px 8px; border-left: 2px solid var(--gold); background: rgb(0 0 0 / 25%); font-size: 12px; }
+.chat__reply-preview { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; background: rgb(245 185 59 / 12%); font-size: 12px; }
+.chat__reply-preview div { min-width: 0; }
+.chat__reply-preview span { display: block; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+
+/* En móvil la mesa es la zona desplazable y la mano ocupa su propio espacio:
+   el teclado y las cartas ya no se superponen sobre los controles. */
+@media (max-width: 700px), (max-height: 520px) and (pointer: coarse) {
+  .room {
+    height: 100dvh;
+    gap: 6px;
+    padding: max(6px, env(safe-area-inset-top)) 6px max(6px, env(safe-area-inset-bottom));
+    overflow: hidden;
+  }
+  .room-header { gap: 5px; order: 0; }
+  .roombar { width: 100%; justify-content: space-between; gap: 6px; padding: 5px 8px; }
+  .roombar .logo, .roombar__copy { display: none; }
+  .roombar__code { font-size: 20px; }
+  .roombar__name { font-size: 12px; max-width: 45vw; }
+  .roombar__tools .btn { padding: 6px 10px; min-height: 40px; }
+  .room-stats { width: 100%; justify-content: space-between; gap: 4px 8px; padding: 5px 8px; font-size: 11px; }
+  .hall-of-shame__body { top: 24px; }
+  .topic { order: 1; padding: 6px 10px; border-radius: 10px; max-height: min(22dvh, 150px); overflow-y: auto; }
+  .topic__text { font-size: 18px; }
+  .topic__label { font-size: 8px; }
+  .topic--empty { display: none; }
+  .phase-timer { order: 2; font-size: 13px; }
+  .turn-timer-settings { order: 2; }
+  .table { order: 4; flex: 1 1 0; min-height: 0; overflow: auto; overscroll-behavior: contain; border-radius: 20px; }
+  .table__rim { height: auto; min-height: 100%; padding: 6px; border-radius: 20px; }
+  .table__felt { grid-template-rows: auto auto auto; gap: 10px; min-height: 100%; padding: 10px 6px; border-radius: 16px; }
+  .table__brand { display: none; }
+  .seats { gap: 5px; }
+  .seat { padding: 3px 6px; gap: 4px; font-size: 11px; }
+  .seat__name { max-width: 76px; }
+  .seat__kick { min-height: 32px; min-width: 32px; }
+  .tablecards { --card-max: 88px; width: 100%; gap: 8px; padding: 8px 4px 24px; }
+  .placed__word { font-size: 12px; }
+  .placed__answer { width: calc(var(--card-w) + 12px); }
+  .placed__check { right: -14px; width: 18px; height: 18px; font-size: 11px; }
+  .slot { width: 44px; min-width: 44px; min-height: 44px; }
+  .slot:hover, .slot:focus-visible { width: 44px; }
+  .slot--first, .slot--first:hover { width: auto; }
+  .phase { padding: 12px 8px; gap: 8px; }
+  .phase__code { font-size: 36px; }
+  .phase__verdict { font-size: 22px; }
+  .phase__lead { font-size: 14px; }
+  .ballot { grid-template-columns: 1fr; }
+  .ballot__option { padding: 10px; min-height: 44px; }
+  .timer-settings { gap: 8px; }
+  .timer-settings input { width: 86px; }
+  .hand {
+    order: 5;
+    position: relative;
+    left: auto;
+    bottom: auto;
+    translate: none;
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    max-height: 38dvh;
+    overflow-y: auto;
+    padding: 8px;
+    border-radius: 12px;
+  }
+  .hand__card { --card-max: 68px; flex-direction: column; gap: 2px; transform: none !important; }
+  .hand__label { max-width: 72px; font-family: var(--font-ui); font-size: 9px; letter-spacing: 0; text-align: center; }
+  .hand__controls { gap: 3px; padding: 0; }
+  .hand__controls .field__label { font-size: 11px; }
+  .hand__input { font-size: 16px; padding: 6px 8px; min-height: 50px; resize: none; }
+  .hand__hint { font-size: 11px; padding-right: 44px; }
+  .hand__note { font-size: 12px; padding-right: 42px; }
+  .chat { right: 10px; bottom: max(10px, env(safe-area-inset-bottom)); }
+  .chat__toggle { min-width: 44px; min-height: 44px; padding: 8px; justify-content: center; }
+  .chat__toggleLabel { display: none; }
+  .chat__panel { width: calc(100vw - 20px); height: min(480px, calc(100dvh - 80px)); background: #100e1a; }
+  .chat__input { min-width: 0; font-size: 16px; }
+  .chat__reply { min-width: 44px; min-height: 44px; }
+  .room .toasts { position: relative; order: 3; flex-shrink: 0; inset: auto; max-width: 100%; }
+  .room .toasts:empty, .room .toast:not(:last-child) { display: none; }
+  .toast { font-size: 12px; padding: 6px 10px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .room__nudge { position: relative; order: 6; top: auto; bottom: auto; left: auto; translate: none; padding: 4px 52px 4px 8px; font-size: 11px; }
+}
+
+@media (max-height: 450px) and (pointer: coarse) {
+  .room { overflow-y: auto; }
+  .table { flex: 1 0 120px; }
+  .room-stats { display: none; }
+  .topic { max-height: 64px; }
+  .hand__card { --card-max: 44px; }
+  .hand__counter { display: none; }
+  .hand { max-height: none; }
+}
+
+@media (min-width: 600px) and (max-height: 520px) and (pointer: coarse) {
+  .room:not(.room--message) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(230px, 32vw);
+    grid-template-rows: auto auto auto minmax(100px, 1fr) auto;
+    overflow: hidden;
+  }
+  .room-header { grid-column: 1 / -1; grid-row: 1; }
+  .topic { grid-column: 1 / -1; grid-row: 2; }
+  .phase-timer { grid-column: 1; grid-row: 3; }
+  .turn-timer-settings { grid-column: 2; grid-row: 3; padding: 4px 8px; }
+  .turn-timer-settings[open] .timer-settings { position: absolute; right: 0; top: 100%; width: 280px; padding: 12px; border-radius: 10px; background: #100e1a; }
+  .table { grid-column: 1; grid-row: 4; min-height: 0; }
+  .hand { grid-column: 2; grid-row: 4; align-self: stretch; max-height: 100%; }
+  .hand__hint { padding-right: 0; }
+  .room.room--nohand .table { grid-column: 1 / -1; }
+  .room .toasts { grid-column: 1 / -1; grid-row: 5; padding-right: 48px; }
+  .room__nudge { display: none; }
 }

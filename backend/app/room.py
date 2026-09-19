@@ -46,6 +46,7 @@ class Player:
     proposal: str | None = None
     proposed: bool = False
     vote: str | None = None
+    timed_out: bool = False
 
 
 @dataclass(slots=True)
@@ -80,6 +81,7 @@ class ChatMessage:
     color: int
     text: str
     at: float
+    reply_to: dict | None = None
 
 
 def clean_text(text: str, limit: int) -> str:
@@ -117,6 +119,16 @@ class Room:
 
     outcome: str | None = None
     break_index: int | None = None
+    failed_player_ids: list[str] = field(default_factory=list)
+    hall_of_shame: dict[str, dict] = field(default_factory=dict)
+    wins: int = 0
+    win_streak: int = 0
+    best_streak: int = 0
+    proposal_seconds: int = 45
+    vote_seconds: int = 30
+    placement_seconds: int = settings.placement_seconds
+    phase_deadline: float | None = None
+    topic_counts: dict[str, int] = field(default_factory=dict)
 
     # El chat vive fuera de la ronda: no se borra al empezar una nueva.
     chat: list[ChatMessage] = field(default_factory=list)
@@ -223,6 +235,7 @@ class Room:
         return player
 
     def remove_player(self, player_id: str) -> None:
+        was_current = self.current_player_id == player_id
         player = self.players.pop(player_id, None)
         if player is None:
             return
@@ -237,6 +250,8 @@ class Room:
                 successor = next(iter(self.players.values()), None)
             self.host_id = successor.id if successor else ""
         self._settle_after_departure()
+        if was_current and self.phase is Phase.PLACING:
+            self.phase_deadline = time.time() + self.placement_seconds
         self.touch()
 
     def _settle_after_departure(self) -> None:
@@ -292,6 +307,7 @@ class Room:
             )
         self._reset_round()
         self.phase = Phase.PROPOSING
+        self.phase_deadline = time.time() + self.proposal_seconds
         self.round_no += 1
         self.touch()
 
@@ -305,6 +321,8 @@ class Room:
         self.abort_round()
 
     def _reset_round(self) -> None:
+        self.phase_deadline = None
+        self.failed_player_ids = []
         for player in self.players.values():
             player.card = None
             player.placed = False
@@ -312,6 +330,7 @@ class Room:
             player.proposal = None
             player.proposed = False
             player.vote = None
+            player.timed_out = False
         self.topic = None
         self.topic_author = None
         self.candidates = []
@@ -323,6 +342,27 @@ class Room:
         self.break_index = None
 
     # ------------------------------------------------------------ fase de tema
+
+    def set_timers(
+        self, player_id: str, proposal_seconds: int, vote_seconds: int,
+        placement_seconds: int = settings.placement_seconds,
+    ) -> None:
+        self.ensure_host(player_id)
+        if self.phase not in (Phase.LOBBY, Phase.RESULT, Phase.PLACING):
+            raise Conflict("round_running", "Cambia los tiempos entre rondas.")
+        if self.phase is Phase.PLACING and (proposal_seconds != self.proposal_seconds
+                                           or vote_seconds != self.vote_seconds):
+            raise Conflict("round_running", "Durante un turno sólo puedes cambiar el tiempo de colocación.")
+        if any(type(value) is not int or not 5 <= value <= 300
+               for value in (proposal_seconds, vote_seconds, placement_seconds)):
+            raise GameError("invalid_timer", "Los tiempos deben ser enteros entre 5 y 300 segundos.")
+        if self.phase is Phase.PLACING and self.phase_deadline is not None:
+            # Conserva el inicio del turno: editar la duración no reinicia el reloj.
+            self.phase_deadline += placement_seconds - self.placement_seconds
+        self.proposal_seconds = proposal_seconds
+        self.vote_seconds = vote_seconds
+        self.placement_seconds = placement_seconds
+        self.touch()
 
     def propose_topic(self, player_id: str, text: str | None) -> Phase:
         """Registra la propuesta (o el paso) de un jugador.
@@ -367,7 +407,12 @@ class Room:
         room_left = max(settings.max_candidates - len(self.candidates), 0)
         for text in sample_topics(self.topic_pool, min(wanted, room_left), seen, self.rng):
             self.candidates.append(Candidate(id=f"c{len(self.candidates)}", text=text))
+        # El orden de la papeleta tampoco identifica a quien propuso cada tema.
+        self.rng.shuffle(self.candidates)
+        for i, candidate in enumerate(self.candidates):
+            candidate.id = f"c{i}"
         self.phase = Phase.VOTING
+        self.phase_deadline = time.time() + self.vote_seconds
         self.touch()
 
     def vote_topic(self, player_id: str, candidate_id: str) -> Phase:
@@ -414,6 +459,9 @@ class Room:
                 self.topic_pool.append(winner.text)
                 del self.topic_pool[:-40]
         self._deal()
+        if self.phase is Phase.PLACING:
+            key = winner.text.casefold()
+            self.topic_counts[key] = self.topic_counts.get(key, 0) + 1
 
     # --------------------------------------------------------- fase de colocar
 
@@ -431,6 +479,7 @@ class Room:
         self.turn_index = 0
         self.table = []
         self.phase = Phase.PLACING
+        self.phase_deadline = time.time() + self.placement_seconds
         self.touch()
 
     def place_card(self, player_id: str, slot: int, answer: str) -> bool:
@@ -444,6 +493,8 @@ class Room:
         player = self.player_or_404(player_id)
         if self.current_player_id != player_id:
             raise Conflict("not_your_turn", "No es tu turno.")
+        if self.phase_deadline is not None and time.time() >= self.phase_deadline:
+            raise Conflict("turn_expired", "Se ha agotado el tiempo de tu turno.")
         if player.card is None or player.placed:
             raise Conflict("no_card", "No tienes carta que colocar.")
         if not 0 <= slot <= len(self.table):
@@ -464,6 +515,7 @@ class Room:
         )
         player.placed = True
         self.turn_index += 1
+        self.phase_deadline = time.time() + self.placement_seconds
         self.touch()
         return self._close_placing_if_done()
 
@@ -478,10 +530,23 @@ class Room:
         target = self.players.get(current)
         if target is not None and target.connected:
             raise Conflict("player_online", "Ese jugador sigue conectado: espera a que coloque.")
+        return self._skip_current_turn()
+
+    def timeout_turn(self) -> bool:
+        """Salta exclusivamente el turno cuyo plazo ha vencido."""
+        if (self.phase is not Phase.PLACING or self.phase_deadline is None
+                or time.time() < self.phase_deadline):
+            return False
+        return self._skip_current_turn(timed_out=True)
+
+    def _skip_current_turn(self, timed_out: bool = False) -> bool:
+        target = self.players.get(self.current_player_id)
         if target is not None:
             target.in_round = False
             target.card = None
+            target.timed_out = timed_out
         self.turn_order.pop(self.turn_index)
+        self.phase_deadline = time.time() + self.placement_seconds
         self.touch()
         return self._close_placing_if_done()
 
@@ -500,6 +565,7 @@ class Room:
 
     def begin_reveal(self) -> None:
         self.phase = Phase.REVEALING
+        self.phase_deadline = None
         self.reveal_index = 0
         self.touch()
 
@@ -512,19 +578,36 @@ class Room:
         return self.reveal_index < len(self.table)
 
     def finish_reveal(self) -> None:
-        values = [p.card.value for p in self.table]
+        if self.phase is not Phase.REVEALING:
+            return
+        ranked = [(i, p) for i, p in enumerate(self.table) if not p.card.is_joker]
+        values = [p.card.value for _, p in ranked]
         # El empate no rompe el orden: sólo falla si una carta es mayor que la
         # que tiene a su derecha.
         self.break_index = next(
-            (i for i in range(len(values) - 1) if values[i] > values[i + 1]), None
+            (ranked[i][0] for i in range(len(values) - 1) if values[i] > values[i + 1]), None
         )
+        self.failed_player_ids = [p.player_id for (_, p), expected in zip(ranked, sorted(values))
+                                  if p.card.value != expected]
+        for _, p in ranked:
+            if p.player_id in self.failed_player_ids:
+                record = self.hall_of_shame.setdefault(p.player_id, {
+                    "playerId": p.player_id, "name": p.player_name, "color": p.color, "failures": 0,
+                })
+                record["failures"] += 1
         self.outcome = "lose" if self.break_index is not None else "win"
+        if self.outcome == "win":
+            self.wins += 1
+            self.win_streak += 1
+            self.best_streak = max(self.best_streak, self.win_streak)
+        else:
+            self.win_streak = 0
         self.phase = Phase.RESULT
         self.touch()
 
     # -------------------------------------------------------------------- chat
 
-    def post_chat(self, player_id: str, text: str) -> ChatMessage:
+    def post_chat(self, player_id: str, text: str, reply_to_id: int | None = None) -> ChatMessage:
         """Publica un mensaje en el chat de la sala.
 
         Se guarda sólo una cola corta: el historial viaja dentro del estado de
@@ -535,6 +618,16 @@ class Room:
         cleaned = clean_text(text, settings.max_chat_len)
         if not cleaned:
             raise GameError("empty_message", "Escribe algo antes de enviarlo.")
+
+        reply_to = None
+        if reply_to_id is not None:
+            if type(reply_to_id) is not int:
+                raise GameError("invalid_reply", "La referencia al mensaje no es válida.")
+            original = next((m for m in self.chat if m.id == reply_to_id), None)
+            if original is None:
+                raise NotFound("no_message", "Ese mensaje ya no está en el historial.")
+            # Una cita plana sobrevive al recorte del historial sin anidar respuestas.
+            reply_to = {"id": original.id, "playerName": original.player_name, "text": original.text}
 
         now = time.time()
         if now - player.last_chat_at < settings.chat_cooldown:
@@ -549,6 +642,7 @@ class Room:
             color=player.color,
             text=cleaned,
             at=now,
+            reply_to=reply_to,
         )
         self.chat.append(message)
         del self.chat[: -settings.chat_history]

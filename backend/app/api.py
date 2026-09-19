@@ -65,6 +65,11 @@ async def list_rooms() -> dict[str, object]:
     return {"rooms": store.public_rooms()}
 
 
+@router.get("/hot-topics")
+async def hot_topics() -> dict[str, object]:
+    return {"topics": store.hot_topics()}
+
+
 @router.get("/rooms/search")
 async def search_rooms(q: str = "") -> dict[str, object]:
     return {"rooms": store.search(q)}

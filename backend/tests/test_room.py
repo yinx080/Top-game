@@ -476,3 +476,311 @@ def test_chat_travels_inside_the_room_state():
     chat = room_view(room, ana)["chat"]
     assert [m["text"] for m in chat] == ["hola a todos"]
     assert chat[0]["playerId"] == ana
+
+
+@pytest.mark.parametrize("joker_slot", [0, 1, 2])
+@pytest.mark.parametrize("values, outcome", [([3, 9], "win"), ([9, 3], "lose")])
+def test_joker_fits_anywhere_but_does_not_hide_other_errors(joker_slot, values, outcome):
+    room = make_room()
+    run_topic_phase(room)
+    cards = [Card(str(value), "S") for value in values]
+    cards.insert(joker_slot, Card("joker", ""))
+    for index, (pid, card) in enumerate(zip(room.turn_order, cards)):
+        room.players[pid].card = card
+        room.place_card(pid, index, "palabra")
+    reveal_all(room)
+    assert room.outcome == outcome
+    assert room.table[joker_slot].player_id not in room.failed_player_ids
+    assert len(room.failed_player_ids) == (0 if outcome == "win" else 2)
+    assert cards[joker_slot].as_dict()["code"] == "joker"
+
+
+def test_joker_deal_probability_and_unique_cards(monkeypatch):
+    import random
+    from app.deck import deal
+
+    rng = random.Random(42)
+    monkeypatch.setattr(rng, "random", lambda: 0.009)
+    cards = deal(10, rng)
+    assert sum(card.is_joker for card in cards) == 1
+    assert len(cards) == len(set(cards)) == 10
+    monkeypatch.setattr(rng, "random", lambda: 0.01)
+    assert not any(card.is_joker for card in deal(10, rng))
+
+
+def test_streaks_and_all_failures_survive_rounds_and_departures():
+    room = make_room(("Ana", "Beto", "Cris", "Dani", "Eva"))
+    for _ in range(2):
+        run_topic_phase(room)
+        place_all(room, [1, 2, 3, 4, 5], [0, 1, 2, 3, 4])
+        reveal_all(room)
+        room.finish_reveal()  # un resultado repetido no vuelve a sumar
+    assert (room.wins, room.win_streak, room.best_streak) == (2, 2, 2)
+    run_topic_phase(room)
+    place_all(room, [2, 1, 3, 5, 4], [0, 1, 2, 3, 4])
+    reveal_all(room)
+    expected = [p.player_id for i, p in enumerate(room.table) if i != 2]
+    assert room.failed_player_ids == expected
+    assert (room.wins, room.win_streak, room.best_streak) == (2, 0, 2)
+    room.finish_reveal()
+    assert all(p["failures"] == 1 for p in room.hall_of_shame.values())
+    room.remove_player(expected[0])
+    room.back_to_lobby(room.host_id)
+    assert set(room.hall_of_shame) == set(expected)
+    assert room.failed_player_ids == []
+    assert room.wins == 2
+    run_topic_phase(room)
+    place_all(room, [4, 3, 2, 1], [0, 1, 2, 3])
+    reveal_all(room)
+    assert all(room.hall_of_shame[pid]["failures"] == 2 for pid in expected[1:])
+
+
+def test_timer_settings_validate_permissions_ranges_and_phase():
+    room = make_room()
+    guest = next(pid for pid in room.players if pid != room.host_id)
+    with pytest.raises(Forbidden):
+        room.set_timers(guest, 30, 20)
+    for value in (None, True, 4, 301, 5.5, "30"):
+        with pytest.raises(GameError):
+            room.set_timers(room.host_id, value, 30)
+    room.set_timers(room.host_id, 60, 15)
+    room.start_round(room.host_id)
+    assert room.phase_deadline is not None
+    with pytest.raises(Conflict):
+        room.set_timers(room.host_id, 30, 30)
+    room.abort_round()
+    assert room.phase_deadline is None
+    assert (room.proposal_seconds, room.vote_seconds) == (60, 15)
+
+
+@pytest.mark.asyncio
+async def test_phase_timers_advance_without_messages_and_cancel_on_abort():
+    import asyncio
+    from app.store import RoomRuntime
+
+    room = make_room()
+    runtime = RoomRuntime(room)
+    room.proposal_seconds = room.vote_seconds = 0.01
+    try:
+        room.start_round(room.host_id)
+        await runtime.broadcast()
+
+        async def wait_for_placing():
+            while room.phase is not Phase.PLACING:
+                await asyncio.sleep(0.001)
+
+        await asyncio.wait_for(wait_for_placing(), timeout=1)
+        assert room.phase_deadline is not None
+        assert runtime.phase_task is not None
+        assert sum(room.topic_counts.values()) == 1
+        room.abort_round()
+        room.start_round(room.host_id)
+        await runtime.broadcast()
+        timer = runtime.phase_task
+        room.abort_round()
+        await runtime.broadcast()
+        await asyncio.sleep(0.03)
+        assert room.phase is Phase.LOBBY
+        assert timer.cancelled()
+    finally:
+        runtime.cancel_timers()
+
+
+def test_placement_deadlines_reset_only_when_the_turn_changes(monkeypatch):
+    from app import room as room_module
+
+    now = 1000.0
+    monkeypatch.setattr(room_module.time, "time", lambda: now)
+    room = make_room(("Ana", "Beto", "Cris", "Dani"))
+    run_topic_phase(room)
+    first, second, third, fourth = room.turn_order
+    assert room.phase_deadline == 1030
+    now += 3
+    room.place_card(first, 0, "Una frase mucho más larga que antes")
+    assert room.phase_deadline == 1033
+    now += 2
+    room.set_connected(second, False)
+    room.set_connected(second, True)
+    room.remove_player(fourth)
+    assert room.phase_deadline == 1033
+    room.remove_player(second)
+    assert room.current_player_id == third
+    assert room.phase_deadline == 1035
+    room.place_card(third, 1, "final")
+    assert room.phase is Phase.REVEALING
+    assert room.phase_deadline is None
+
+
+def test_expired_turn_cannot_place_and_advances_once(monkeypatch):
+    from app import room as room_module
+
+    now = 1000.0
+    monkeypatch.setattr(room_module.time, "time", lambda: now)
+    room = make_room()
+    run_topic_phase(room)
+    first, second, _ = room.turn_order
+    room.timeout_turn()  # aún tiene tiempo
+    assert room.current_player_id == first
+    now = 1030
+    with pytest.raises(Conflict, match="agotado"):
+        room.place_card(first, 0, "demasiado tarde")
+    room.timeout_turn()
+    assert room.current_player_id == second
+    assert room.players[first].timed_out
+    assert room.players[first].card is None
+    assert room.phase_deadline == 1060
+    room.timeout_turn()
+    assert room.current_player_id == second
+    now = 1060
+    room.timeout_turn()
+    now = 1090
+    room.timeout_turn()
+    assert room.phase is Phase.LOBBY  # nadie colocó
+    assert room.phase_deadline is None
+    assert room.wins == 0
+
+
+@pytest.mark.asyncio
+async def test_last_placement_timeout_starts_reveal(monkeypatch):
+    import asyncio
+    import dataclasses
+    from app import store as store_module
+
+    quick = dataclasses.replace(settings, reveal_step=0.001, reveal_tail=0.001)
+    monkeypatch.setattr(store_module, "settings", quick)
+    room = make_room()
+    run_topic_phase(room)
+    first, second, last = room.turn_order
+    force_cards(room, [1, 2, 3])
+    room.place_card(first, 0, "uno")
+    room.place_card(second, 1, "dos")
+    room.phase_deadline = 1  # plazo ya vencido
+    runtime = store_module.RoomRuntime(room)
+    try:
+        await runtime.broadcast()
+        async def wait_for_result():
+            while room.phase is not Phase.RESULT:
+                await asyncio.sleep(0.001)
+        await asyncio.wait_for(wait_for_result(), timeout=1)
+        assert room.players[last].timed_out
+        assert len(room.table) == 2
+        assert room.outcome == "win"
+        assert runtime.phase_task is None
+    finally:
+        runtime.cancel_timers()
+
+
+def test_anonymous_topics_and_long_texts_are_serialized_without_authors():
+    from app.views import room_view
+
+    room = make_room()
+    host = room.host_id
+    guest = next(pid for pid in room.players if pid != host)
+    text = "Una escala bastante más detallada " + "x" * 140
+    assert 70 < len(text) <= settings.max_topic_len
+    room.start_round(host)
+    room.propose_topic(host, text)
+    room.close_proposals()
+    candidates = room_view(room, guest)["candidates"]
+    assert any(c["text"] == text for c in candidates)
+    assert all("author" not in c and "authorId" not in c for c in candidates)
+    mine = next(c for c in room.candidates if c.author_id == host)
+    for pid in list(room.players):
+        room.vote_topic(pid, mine.id)
+    assert room_view(room, guest)["topic"] == {"text": text}
+    answer = "Una respuesta larga con detalles que antes no cabían en el límite"
+    first = room.current_player_id
+    room.place_card(first, 0, answer)
+    assert room.table[0].answer == answer
+    room.place_card(room.current_player_id, 1, "x" * 100)
+    assert len(room.table[1].answer) == settings.max_answer_len
+    room.abort_round()
+    room.start_round(host)
+    room.propose_topic(host, "x" * 250)
+    assert len(room.players[host].proposal) == settings.max_topic_len
+
+
+def test_chat_replies_keep_a_server_owned_flat_quote():
+    from app.views import room_view
+
+    room = make_room()
+    first, second, third = list(room.players)
+    original = room.post_chat(first, "¿Dónde pondrías un melón?")
+    reply = room.post_chat(second, "En el medio", original.id)
+    nested = room.post_chat(third, "De acuerdo", reply.id)
+    assert reply.reply_to == {"id": original.id, "playerName": original.player_name, "text": original.text}
+    assert nested.reply_to == {"id": reply.id, "playerName": reply.player_name, "text": reply.text}
+    room.chat.remove(original)
+    assert room_view(room, third)["chat"][0]["replyTo"]["text"] == original.text
+    room.players[second].last_chat_at = 0
+    for bad in (True, "2", {}, 1.5):
+        with pytest.raises(GameError):
+            room.post_chat(second, "respuesta", bad)
+    with pytest.raises(GameError):
+        room.post_chat(second, "respuesta", original.id)
+
+
+def test_host_can_edit_each_turn_duration_without_resetting_elapsed_time(monkeypatch):
+    from app import room as room_module
+    from app.views import room_view
+
+    now = 1000.0
+    monkeypatch.setattr(room_module.time, "time", lambda: now)
+    room = make_room()
+    assert room.placement_seconds == 30
+    run_topic_phase(room)
+    first, second, _ = room.turn_order
+    guest = next(pid for pid in room.players if pid != room.host_id)
+    now += 8
+    with pytest.raises(Forbidden):
+        room.set_timers(guest, room.proposal_seconds, room.vote_seconds, 60)
+    for invalid in (None, True, 0, 301, 5.5, "60"):
+        with pytest.raises(GameError):
+            room.set_timers(room.host_id, room.proposal_seconds, room.vote_seconds, invalid)
+    room.set_timers(room.host_id, room.proposal_seconds, room.vote_seconds, 60)
+    assert room.phase_deadline == 1060  # quedan 52, no 60
+    assert room_view(room, guest)["placementSeconds"] == 60
+    assert room_view(room, guest)["phaseDeadline"] == 1060
+    now += 2
+    room.set_timers(room.host_id, room.proposal_seconds, room.vote_seconds, 20)
+    assert room.phase_deadline == 1020  # quedan 10
+    room.place_card(first, 0, "respuesta")
+    assert room.current_player_id == second
+    assert room.phase_deadline == 1030  # el nuevo turno tiene 20 segundos completos
+    room.set_timers(room.host_id, room.proposal_seconds, room.vote_seconds, 40)
+    assert room.phase_deadline == 1050
+    with pytest.raises(Conflict):
+        room.set_timers(room.host_id, room.proposal_seconds + 1, room.vote_seconds, 40)
+
+
+@pytest.mark.asyncio
+async def test_editing_duration_cancels_old_timer_and_shortening_can_expire_now():
+    import asyncio
+    import time
+    from app.store import RoomRuntime
+
+    room = make_room()
+    run_topic_phase(room)
+    first = room.current_player_id
+    runtime = RoomRuntime(room)
+    try:
+        await runtime.broadcast()
+        original_task = runtime.phase_task
+        deadline = room.phase_deadline
+        room.set_timers(room.host_id, room.proposal_seconds, room.vote_seconds, 60)
+        await runtime.broadcast()
+        await asyncio.sleep(0)
+        assert original_task.cancelled()
+        assert room.phase_deadline == deadline + 30
+        # Han pasado 20 segundos desde el inicio de un turno de 60.
+        room.phase_deadline = time.time() + 40
+        room.set_timers(room.host_id, room.proposal_seconds, room.vote_seconds, 5)
+        await runtime.broadcast()
+        async def wait_for_timeout():
+            while room.current_player_id == first:
+                await asyncio.sleep(0.001)
+        await asyncio.wait_for(wait_for_timeout(), timeout=1)
+        assert room.players[first].timed_out
+        assert 4 < room.phase_deadline - time.time() <= 5
+    finally:
+        runtime.cancel_timers()

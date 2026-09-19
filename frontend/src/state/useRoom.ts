@@ -14,6 +14,7 @@ export interface Toast {
 interface RoomState {
   status: SocketStatus | 'idle'
   room: RoomView | null
+  receivedAt: number
   playerId: string | null
   /** Mensaje del servidor que deja la sala inservible (expulsado, sala cerrada…). */
   fatal: string | null
@@ -32,6 +33,7 @@ let toastId = 0
 export const useRoom = create<RoomState>()((set, get) => ({
   status: 'idle',
   room: null,
+  receivedAt: 0,
   playerId: null,
   fatal: null,
   toasts: [],
@@ -92,7 +94,7 @@ function handleMessage(message: ServerMessage, set: Setter, get: () => RoomState
 
     case 'state': {
       const previous = get().room
-      set({ room: message.room })
+      set({ room: message.room, receivedAt: performance.now() })
       if (message.event) reactToEvent(message.event, message.room, get)
       announceYourTurn(previous, message.room, get)
       break
@@ -138,6 +140,9 @@ function reactToEvent(event: ServerEvent, room: RoomView, get: () => RoomState):
       break
     case 'turn_skipped':
       get().toast('Turno saltado por desconexión')
+      break
+    case 'turn_timeout':
+      get().toast(`Se agotó el tiempo de ${event.name}: turno saltado.`, 'bad')
       break
     case 'reveal':
       sfx.play('flip')

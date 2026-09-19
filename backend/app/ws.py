@@ -62,6 +62,15 @@ async def _dispatch(
         room.start_round(player_id)
         await runtime.broadcast({"kind": "round_started", "round": room.round_no})
 
+    elif action == "set_timers":
+        room.set_timers(
+            player_id,
+            data.get("proposalSeconds", room.proposal_seconds),
+            data.get("voteSeconds", room.vote_seconds),
+            data.get("placementSeconds", room.placement_seconds),
+        )
+        await runtime.broadcast()
+
     elif action == "propose":
         text = data.get("text")
         room.propose_topic(player_id, text if isinstance(text, str) else None)
@@ -90,7 +99,7 @@ async def _dispatch(
             await _announce_phase(runtime)
 
     elif action == "chat":
-        message = room.post_chat(player_id, str(data.get("text") or ""))
+        message = room.post_chat(player_id, str(data.get("text") or ""), data.get("replyToId"))
         await runtime.broadcast(
             {"kind": "chat", "messageId": message.id, "from": message.player_name}
         )

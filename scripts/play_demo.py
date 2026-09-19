@@ -135,9 +135,9 @@ async def run(base: str, count: int, keep: bool, smart: bool) -> None:
         )
 
     result = await host.until(lambda room: room["phase"] == "result")
-    values = [entry["card"]["value"] for entry in result["table"]]
-    words = [entry["answer"] for entry in result["table"]]
-    print(f"Mesa: {' → '.join(f'{w}({v})' for w, v in zip(words, values))}")
+    values = [entry["card"]["value"] for entry in result["table"] if entry["card"]["code"] != "joker"]
+    labels = [f"{entry['answer']}({entry['card']['code']})" for entry in result["table"]]
+    print(f"Mesa: {' → '.join(labels)}")
     print(f"Resultado: {'VICTORIA' if result['outcome'] == 'win' else 'DERROTA'}", end="")
     print(f" (se rompe en la posición {result['breakIndex']})" if result["breakIndex"] is not None else "")
 

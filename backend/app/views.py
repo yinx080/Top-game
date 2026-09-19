@@ -7,6 +7,7 @@ tuya y aún la tienes en la mano, o si ya se ha destapado sobre la mesa.
 from __future__ import annotations
 
 from typing import Any
+import time
 
 from .config import settings
 from .deck import MAX_VALUE, MIN_VALUE
@@ -43,6 +44,7 @@ def _player_view(room: Room, player_id: str) -> dict[str, Any]:
         "proposed": player.proposed,
         "voted": player.vote is not None,
         "isCurrent": room.current_player_id == player.id,
+        "timedOut": player.timed_out,
     }
 
 
@@ -55,7 +57,6 @@ def _candidates_view(room: Room, viewer_id: str) -> list[dict[str, Any]]:
         {
             "id": c.id,
             "text": c.text,
-            "author": c.author_name,
             "isMine": c.author_id == viewer_id,
             "isRandom": c.author_id is None,
             "voters": voters[c.id],
@@ -88,6 +89,7 @@ def _chat_view(room: Room) -> list[dict[str, Any]]:
             "color": m.color,
             "text": m.text,
             "at": m.at,
+            "replyTo": m.reply_to,
         }
         for m in room.chat
     ]
@@ -126,10 +128,11 @@ def room_view(room: Room, viewer_id: str | None) -> dict[str, Any]:
             "proposal": viewer.proposal,
             "vote": viewer.vote,
             "isCurrent": room.current_player_id == viewer.id,
+            "timedOut": viewer.timed_out,
         },
         "topic": None
         if room.topic is None
-        else {"text": room.topic, "author": room.topic_author},
+        else {"text": room.topic},
         "candidates": _candidates_view(room, viewer_id or ""),
         "pendingProposals": room.pending_proposals(),
         "pendingVotes": room.pending_votes(),
@@ -140,6 +143,16 @@ def room_view(room: Room, viewer_id: str | None) -> dict[str, Any]:
         "revealIndex": room.reveal_index,
         "outcome": room.outcome,
         "breakIndex": room.break_index,
+        "failedPlayerIds": room.failed_player_ids,
+        "hallOfShame": sorted(room.hall_of_shame.values(), key=lambda p: (-p["failures"], p["name"])),
+        "wins": room.wins,
+        "winStreak": room.win_streak,
+        "bestStreak": room.best_streak,
+        "proposalSeconds": room.proposal_seconds,
+        "voteSeconds": room.vote_seconds,
+        "phaseDeadline": room.phase_deadline,
+        "serverNow": time.time(),
+        "placementSeconds": room.placement_seconds,
         "savedTopics": len(room.topic_pool),
         "chat": _chat_view(room),
         "limits": {

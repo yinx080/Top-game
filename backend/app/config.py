@@ -37,8 +37,8 @@ class Settings:
     # Longitudes aceptadas
     max_name_len: int = 16
     max_room_name_len: int = 28
-    max_topic_len: int = 70
-    max_answer_len: int = 28
+    max_topic_len: int = 180
+    max_answer_len: int = 80
     max_password_len: int = 32
     max_chat_len: int = 160
 
@@ -49,6 +49,7 @@ class Settings:
     # Votación de tema
     min_candidates: int = 3
     max_candidates: int = 6
+    placement_seconds: int = 30
 
     # Ritmo del destape (segundos)
     reveal_step: float = 1.25

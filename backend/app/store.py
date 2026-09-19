@@ -16,6 +16,7 @@ import asyncio
 import contextlib
 import logging
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -39,6 +40,8 @@ class RoomRuntime:
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     sockets: dict[str, set[WebSocket]] = field(default_factory=dict)
     reveal_task: asyncio.Task | None = None
+    phase_task: asyncio.Task | None = None
+    scheduled_deadline: float | None = None
     empty_since: float | None = field(default_factory=time.time)
 
     # ------------------------------------------------------------- conexiones
@@ -68,6 +71,7 @@ class RoomRuntime:
         El estado va siempre completo: es un objeto pequeño y evita toda una
         familia de bugs de sincronización por parches perdidos.
         """
+        self.schedule_phase_timer()
         dead: list[tuple[str, WebSocket]] = []
         for player_id, pool in list(self.sockets.items()):
             payload: dict[str, Any] = {
@@ -89,6 +93,44 @@ class RoomRuntime:
             await socket.send_json(payload)
 
     # ------------------------------------------------------- ritmo del destape
+
+    def schedule_phase_timer(self) -> None:
+        deadline = self.room.phase_deadline
+        if deadline == self.scheduled_deadline:
+            return
+        if self.phase_task and self.phase_task is not asyncio.current_task():
+            self.phase_task.cancel()
+        self.scheduled_deadline = deadline
+        self.phase_task = asyncio.create_task(self._run_phase_timer(deadline)) if deadline else None
+
+    async def _run_phase_timer(self, deadline: float) -> None:
+        await asyncio.sleep(max(0, deadline - time.time()))
+        async with self.lock:
+            if self.room.phase_deadline != deadline:
+                return
+            if self.room.phase is Phase.PROPOSING:
+                self.room.close_proposals()
+                event = {"kind": "voting_open"}
+            elif self.room.phase is Phase.VOTING:
+                self.room.close_voting()
+                event = ({"kind": "topic_chosen", "topic": self.room.topic}
+                         if self.room.phase is Phase.PLACING else {"kind": "round_aborted"})
+            elif self.room.phase is Phase.PLACING:
+                player = self.room.players.get(self.room.current_player_id)
+                self.room.timeout_turn()
+                event = {"kind": "turn_timeout", "name": player.name if player else "Jugador"}
+                if self.room.phase is Phase.REVEALING:
+                    self.schedule_reveal()
+            else:
+                return
+            await self.broadcast(event)
+
+    def cancel_timers(self) -> None:
+        self.cancel_reveal()
+        if self.phase_task:
+            self.phase_task.cancel()
+        self.phase_task = None
+        self.scheduled_deadline = None
 
     def schedule_reveal(self) -> None:
         """Arranca el cronómetro del destape. La sala ya está en fase REVEALING:
@@ -170,6 +212,13 @@ class RoomStore:
         out.sort(key=lambda r: (r.is_private, -len(r.connected_players), r.created_at))
         return [room_summary(r) for r in out]
 
+    def hot_topics(self) -> list[dict[str, Any]]:
+        counts: Counter[str] = Counter()
+        for runtime in self._rooms.values():
+            if not runtime.room.is_private:
+                counts.update(runtime.room.topic_counts)
+        return [{"text": text, "rounds": count} for text, count in counts.most_common(5)]
+
     # ------------------------------------------------------------------ altas
 
     def create(
@@ -197,7 +246,7 @@ class RoomStore:
     def drop(self, code: str) -> None:
         runtime = self._rooms.pop(code.upper(), None)
         if runtime is not None:
-            runtime.cancel_reveal()
+            runtime.cancel_timers()
 
     # ------------------------------------------------------------ mantenimiento
 
@@ -212,7 +261,7 @@ class RoomStore:
                 await self._sweeper
             self._sweeper = None
         for runtime in list(self._rooms.values()):
-            runtime.cancel_reveal()
+            runtime.cancel_timers()
         self._rooms.clear()
 
     async def _sweep_forever(self) -> None:
@@ -248,7 +297,7 @@ class RoomStore:
                     and now - runtime.empty_since > settings.empty_room_ttl
                 )
                 if room.is_empty() or idle_too_long or abandoned:
-                    runtime.cancel_reveal()
+                    runtime.cancel_timers()
                     self._rooms.pop(code, None)
                     continue
                 if stale:

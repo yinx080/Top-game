@@ -50,6 +50,7 @@ export interface ServerConfig {
 }
 
 export const api = {
+  hotTopics: () => request<{ topics: { text: string; rounds: number }[] }>('/api/hot-topics').then((r) => r.topics),
   config: () => request<ServerConfig>('/api/config'),
 
   publicRooms: () => request<{ rooms: RoomSummary[] }>('/api/rooms').then((r) => r.rooms),

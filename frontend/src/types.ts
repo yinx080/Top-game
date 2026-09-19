@@ -5,11 +5,12 @@ export type Phase = 'lobby' | 'proposing' | 'voting' | 'placing' | 'revealing' |
 export interface Card {
   code: string
   rank: string
-  suit: 'S' | 'H' | 'D' | 'C'
+  suit: 'S' | 'H' | 'D' | 'C' | ''
   value: number
 }
 
 export interface PlayerView {
+  timedOut: boolean
   id: string
   name: string
   color: number
@@ -24,6 +25,7 @@ export interface PlayerView {
 }
 
 export interface SelfView {
+  timedOut: boolean
   id: string
   name: string
   color: number
@@ -40,7 +42,6 @@ export interface SelfView {
 export interface CandidateView {
   id: string
   text: string
-  author: string | null
   isMine: boolean
   isRandom: boolean
   voters: string[]
@@ -57,6 +58,7 @@ export interface TableEntry {
 }
 
 export interface ChatMessage {
+  replyTo: { id: number; playerName: string; text: string } | null
   id: number
   playerId: string
   playerName: string
@@ -76,7 +78,7 @@ export interface RoomView {
   minPlayers: number
   players: PlayerView[]
   you: SelfView | null
-  topic: { text: string; author: string | null } | null
+  topic: { text: string } | null
   candidates: CandidateView[]
   pendingProposals: string[]
   pendingVotes: string[]
@@ -87,6 +89,16 @@ export interface RoomView {
   revealIndex: number
   outcome: 'win' | 'lose' | null
   breakIndex: number | null
+  failedPlayerIds: string[]
+  hallOfShame: { playerId: string; name: string; color: number; failures: number }[]
+  wins: number
+  winStreak: number
+  bestStreak: number
+  proposalSeconds: number
+  voteSeconds: number
+  phaseDeadline: number | null
+  serverNow: number
+  placementSeconds: number
   savedTopics: number
   chat: ChatMessage[]
   limits: {
@@ -131,6 +143,7 @@ export type ServerEvent =
   | { kind: 'card_placed'; slot: number }
   | { kind: 'chat'; messageId: number; from: string }
   | { kind: 'turn_skipped' }
+  | { kind: 'turn_timeout'; name: string }
   | { kind: 'reveal_start' }
   | { kind: 'reveal'; slot: number }
   | { kind: 'result'; outcome: 'win' | 'lose' }
@@ -145,6 +158,7 @@ export type ServerMessage =
   | { type: 'pong' }
 
 export type ClientMessage =
+  | { action: 'set_timers'; proposalSeconds?: number; voteSeconds?: number; placementSeconds?: number }
   | { action: 'ping' }
   | { action: 'leave' }
   | { action: 'start_round' }
@@ -156,4 +170,4 @@ export type ClientMessage =
   | { action: 'skip_turn' }
   | { action: 'back_to_lobby' }
   | { action: 'kick'; playerId: string }
-  | { action: 'chat'; text: string }
+  | { action: 'chat'; text: string; replyToId?: number }

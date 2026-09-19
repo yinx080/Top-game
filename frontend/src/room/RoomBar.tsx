@@ -52,7 +52,7 @@ export function RoomBar({ room, onLeave }: { room: RoomView; onLeave: () => void
   )
 }
 
-/** Cartel del tema, arriba a la derecha durante toda la partida. */
+/** Tema centrado sobre los jugadores, fuera de la mesa. */
 export function TopicBanner({ room }: { room: RoomView }) {
   if (!room.topic) {
     return (
@@ -69,7 +69,6 @@ export function TopicBanner({ room }: { room: RoomView }) {
     <div className="topic">
       <span className="topic__label">Tema · ronda {room.round}</span>
       <span className="topic__text">{room.topic.text}</span>
-      {room.topic.author && <span className="topic__author">propuesto por {room.topic.author}</span>}
     </div>
   )
 }

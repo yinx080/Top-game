@@ -25,7 +25,7 @@ export function PlayingCard({
   return (
     <div
       className={`pcard ${instant ? 'pcard--instant' : ''} ${className}`}
-      style={{ width, height: Math.round(width * 1.42) }}
+      style={{ width: `min(${width}px, var(--card-max, ${width}px))`, aspectRatio: '1 / 1.42' }}
       data-face-up={showFace ? 'true' : 'false'}
       role="img"
       aria-label={showFace ? describe(card) : 'Carta boca abajo'}
@@ -41,6 +41,7 @@ export function PlayingCard({
 }
 
 const SUIT_NAME: Record<Card['suit'], string> = {
+  '': '',
   S: 'picas',
   H: 'corazones',
   D: 'diamantes',
@@ -50,5 +51,6 @@ const SUIT_NAME: Record<Card['suit'], string> = {
 const RANK_NAME: Record<string, string> = { A: 'As', J: 'J', Q: 'Q', K: 'K' }
 
 function describe(card: Card): string {
+  if (card.code === 'joker') return 'Joker: encaja en cualquier posición'
   return `${RANK_NAME[card.rank] ?? card.rank} de ${SUIT_NAME[card.suit]}`
 }

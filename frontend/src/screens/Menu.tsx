@@ -22,6 +22,7 @@ export function Menu() {
   const { playerName, setPlayerName } = useSession()
   const [config, setConfig] = useState<ServerConfig | null>(null)
   const [rooms, setRooms] = useState<RoomSummary[] | null>(null)
+  const [hotTopics, setHotTopics] = useState<{ text: string; rounds: number }[]>([])
   const [loading, setLoading] = useState(false)
   const [offline, setOffline] = useState(false)
   const [dialog, setDialog] = useState<Dialog>('none')
@@ -44,9 +45,11 @@ export function Menu() {
 
   useEffect(() => {
     void loadRooms()
+    const loadTopics = () => api.hotTopics().then(setHotTopics).catch(() => undefined)
+    void loadTopics()
     api.config().then(setConfig).catch(() => undefined)
     // El listado se refresca solo: las salas aparecen y mueren en segundos.
-    const timer = window.setInterval(() => void loadRooms(), 8000)
+    const timer = window.setInterval(() => { void loadRooms(); void loadTopics() }, 8000)
     const onFocus = () => void loadRooms()
     window.addEventListener('focus', onFocus)
     return () => {
@@ -87,6 +90,12 @@ export function Menu() {
             alt=""
             style={{ '--i': index } as CSSProperties}
           />
+        ))}
+        {['🍉', '🎸', '🚀', '🐙', '🍒', '💎', '⚽', '🌵'].map((emoji, index) => (
+          <span key={emoji} className="menu__floater menu__emoji"
+            style={{ '--i': index, top: `${12 + (index * 19) % 76}%` } as CSSProperties}>
+            {emoji}
+          </span>
         ))}
       </div>
 
@@ -151,6 +160,17 @@ export function Menu() {
           </section>
 
           <aside className="menu__aside stack">
+            <section className="panel">
+              <div className="panel__head"><h2 className="panel__title">🔥 Hot topics</h2></div>
+              <div className="panel__body">
+                <p className="hint">Los más jugados en las salas públicas actuales.</p>
+                <ol className="hot-topics">
+                  {(hotTopics.length ? hotTopics : (config?.sampleTopics ?? []).slice(0, 5).map((text) => ({ text, rounds: 0 }))).map((topic) => (
+                    <li key={topic.text}><span>{topic.text}</span><small>{topic.rounds ? `${topic.rounds} rondas` : 'Sugerencia'}</small></li>
+                  ))}
+                </ol>
+              </div>
+            </section>
             <section className="panel">
               <div className="panel__head">
                 <h2 className="panel__title">Entrar con código</h2>

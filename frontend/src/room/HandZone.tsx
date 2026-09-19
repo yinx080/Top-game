@@ -27,7 +27,7 @@ export function HandZone({
     return (
       <div className="hand hand--note">
         <span className="hand__note">
-          👁 Estás mirando esta ronda. Entrarás en la siguiente.
+          {you.timedOut ? '⏳ Se agotó tu tiempo. Entrarás en la siguiente ronda.' : '👁 Estás mirando esta ronda. Entrarás en la siguiente.'}
         </span>
       </div>
     )
@@ -57,33 +57,32 @@ export function HandZone({
         transition={{ type: 'spring', stiffness: 260, damping: 26 }}
       >
         <PlayingCard card={you.card} faceUp width={128} instant={reducedMotion} />
-        <span className="hand__label">Tu carta</span>
+        <span className="hand__label">{you.card?.code === 'joker' ? '🃏 Joker · cualquier posición' : 'Tu carta'}</span>
       </motion.div>
 
       <div className="hand__controls">
-        {myTurn ? (
-          <>
             <label className="field__label" htmlFor="answer">
-              Tu palabra para este top
+              Tu palabra o frase para este top
             </label>
-            <input
+            <textarea
               id="answer"
               className="input hand__input"
+              rows={2}
               value={answer}
               maxLength={room.limits.answer}
-              autoFocus
-              placeholder="Escríbela aquí…"
+              placeholder={myTurn ? 'Escríbela y elige un hueco…' : 'Prepárala mientras juegan los demás…'}
               onChange={(event) => onAnswerChange(event.target.value)}
             />
+            <span className="hint hand__counter">{answer.length}/{room.limits.answer}</span>
+        {myTurn ? (
             <p className={`hand__hint ${ready ? 'is-ready' : ''}`}>
               {ready
                 ? '👉 Ahora elige el hueco de la mesa donde encaja tu carta.'
                 : 'Di una palabra que merezca ese puesto en el top.'}
             </p>
-          </>
         ) : (
           <p className="hand__hint">
-            Le toca a <strong>{nameOf(room, room.currentPlayerId)}</strong>. Mira dónde coloca.
+            Le toca a <strong>{nameOf(room, room.currentPlayerId)}</strong>. Puedes ir escribiendo; tendrás {room.placementSeconds} s para colocar.
           </p>
         )}
       </div>

@@ -71,8 +71,9 @@ sala es privada, `--base` si el backend no está en el 8000. Se paran con Ctrl+C
 ### Comprobaciones
 
 ```bash
-cd backend && python -m pytest        # 57 tests: reglas, chat, API y partida por WebSocket
+cd backend && python -m pytest        # reglas, temporizadores, chat, API y partida por WebSocket
 cd frontend && npm run typecheck
+npm test                             # reloj sincronizado (Node 22.6+)
 python scripts/play_demo.py --players 5          # partida completa contra un servidor vivo
 python scripts/play_demo.py --players 5 --smart  # colocando bien: debe ganar
 ```
@@ -118,10 +119,51 @@ lobby ──(anfitrión)──► proposing ──► voting ──► placing �
   └──────────────────────── (otra ronda / volver al lobby) ──────────────────┘
 ```
 
-Cada fase se cierra sola en cuanto han respondido todos los jugadores
-conectados; el anfitrión puede adelantarla si alguien se demora. El destape lo
+Las propuestas y la votación se cierran cuando responden todos los conectados o
+vence su temporizador (45 y 30 segundos por defecto). El anfitrión puede cambiar
+ambos tiempos entre rondas, de 5 a 300 segundos, o adelantar la fase. El destape lo
 marca el servidor (una carta cada 1,25 s) para que todo el mundo vea el mismo
 volteo en el mismo instante.
+
+### Estadísticas y novedades
+
+- La sala conserva victorias totales, racha actual y mejor racha. Una derrota
+  corta la racha; una ronda cancelada no suma ni resta. Volver al lobby conserva los datos.
+- El «hall of shame» cuenta un fallo por jugador y ronda cuando el valor de su
+  carta no coincide con el que ocuparía ese lugar en el top ordenado. Se señalan
+  todos los jugadores afectados, respetando empates e ignorando el joker.
+  Los registros de quienes abandonan permanecen durante la vida de la sala.
+- En el 1 % de los repartos una carta se sustituye por un joker, válido en
+  cualquier posición. No oculta errores de orden entre las demás cartas.
+- El inicio muestra los cinco temas más jugados en las salas públicas actuales;
+  sin datos muestra sugerencias. Los temas privados no aparecen en ese ranking.
+- El tema aparece centrado sobre los jugadores, el código usa tipografía
+  monoespaciada más grande y el chat se abre siempre en el mensaje más reciente.
+
+Las estadísticas y los temas populares viven en memoria, igual que las salas:
+se eliminan al desaparecer la sala o reiniciar el servidor.
+
+### Temporizadores, móvil y chat
+
+- Los contadores usan la hora recibida del servidor y el tiempo monotónico del
+  navegador, por lo que un reloj local adelantado o atrasado no altera la cuenta.
+  Los cambios del anfitrión se difunden a todos y se aplican a la siguiente ronda.
+- Cada turno de colocación dura **30 segundos por defecto**. El anfitrión puede
+  ajustar su duración entre **5 y 300 segundos**, también durante cada turno.
+  El cambio se aplica al turno actual y a los siguientes, conservando el tiempo
+  ya transcurrido. Si el nuevo plazo ya venció, se salta el turno inmediatamente.
+  Puedes preparar la respuesta
+  mientras colocan los demás. Al vencer el tiempo se descarta tu carta y pasa el
+  turno al siguiente; la ronda se resuelve con las cartas colocadas. Si nadie
+  coloca, vuelve al lobby sin sumar una victoria.
+- Las propuestas son anónimas: ni la votación ni el tema elegido publican el
+  nombre del autor. La papeleta se mezcla para no revelar el orden de los autores.
+- Los temas admiten **180 caracteres** y las palabras o frases **80 caracteres**.
+- En móvil, la mesa se desplaza dentro de su espacio, la mano permanece separada
+  y los huecos para colocar tienen controles táctiles más grandes.
+- La flecha junto a cada nombre del chat permite responder a ese mensaje. La
+  respuesta incluye una cita conservada aunque el original salga del historial;
+  el botón ✕ cancela una respuesta antes de enviarla.
 
 ---
 

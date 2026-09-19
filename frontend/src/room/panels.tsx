@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 
 import { Button } from '../components/ui'
+import { remainingSeconds } from '../lib/clock'
 import type { ClientMessage, RoomView } from '../types'
 
 type Send = (message: ClientMessage) => void
@@ -21,6 +22,7 @@ export function LobbyPanel({ room, send }: { room: RoomView; send: Send }) {
         {room.savedTopics > 0 && ` · ${room.savedTopics} temas guardados en esta sala`}
       </p>
 
+      <TimerSettings room={room} send={send} />
       {isHost ? (
         <>
           <Button
@@ -88,11 +90,12 @@ export function ProposePanel({ room, send }: { room: RoomView; send: Send }) {
           submit()
         }}
       >
-        <input
+        <textarea
           className="input"
+          rows={2}
+          aria-label="Tema propuesto"
           value={text}
           maxLength={room.limits.topic}
-          autoFocus
           placeholder="Animales, de menos a más peligrosos…"
           onChange={(event) => setText(event.target.value)}
         />
@@ -105,7 +108,7 @@ export function ProposePanel({ room, send }: { room: RoomView; send: Send }) {
       </form>
       <p className="hint">
         Escribe una escala, no una pregunta. Si tu tema gana la votación, la sala se lo queda para
-        futuras rondas.
+        futuras rondas. Las propuestas son anónimas. {text.length}/{room.limits.topic}
       </p>
     </div>
   )
@@ -135,7 +138,7 @@ export function VotePanel({ room, send }: { room: RoomView; send: Send }) {
                 <span className="ballot__text">{candidate.text}</span>
                 <span className="ballot__meta">
                   <span className="tag">
-                    {candidate.isRandom ? '🎲 sorpresa' : `de ${candidate.author}`}
+                    {candidate.isRandom ? '🎲 sorpresa' : 'Propuesta anónima'}
                   </span>
                   <span className="ballot__voters">
                     {candidate.voters.map((voterId) => (
@@ -165,7 +168,7 @@ export function VotePanel({ room, send }: { room: RoomView; send: Send }) {
 /** Resultado de la ronda: el grupo gana o pierde en bloque. */
 export function ResultPanel({ room, send }: { room: RoomView; send: Send }) {
   const won = room.outcome === 'win'
-  const values = room.table.map((entry) => entry.card?.value ?? 0)
+  const failed = room.table.filter((entry) => room.failedPlayerIds.includes(entry.playerId))
 
   return (
     <motion.div
@@ -178,19 +181,21 @@ export function ResultPanel({ room, send }: { room: RoomView; send: Send }) {
       <p className="phase__lead">
         {won
           ? 'Las cartas quedaron ordenadas de menor a mayor. Victoria del grupo.'
-          : `La ${ordinal((room.breakIndex ?? 0) + 1)} carta es mayor que la siguiente.`}
+           : `Fuera de posición: ${failed.map((entry) => entry.playerName).join(', ')}.`}
       </p>
       <div className="phase__sequence">
-        {values.map((value, index) => (
+        {room.table.map((entry, index) => (
           <span
             key={index}
-            className={`phase__num ${room.breakIndex === index ? 'is-break' : ''}`}
+            className={`phase__num ${room.failedPlayerIds.includes(entry.playerId) ? 'is-break' : ''}`}
           >
-            {value}
+            {entry.card?.code === 'joker' ? '🃏' : entry.card?.value}
           </span>
         ))}
       </div>
 
+      {!won && <p className="hint">Se compara cada valor con el top ordenado, sin contar el joker. Un fallo por jugador y ronda.</p>}
+      <TimerSettings room={room} send={send} />
       {room.you?.isHost ? (
         <div className="row row--wrap" style={{ justifyContent: 'center' }}>
           <Button variant="primary" onClick={() => send({ action: 'next_round' })}>
@@ -225,7 +230,47 @@ export function RevealPanel({ room }: { room: RoomView }) {
   )
 }
 
-function ordinal(n: number): string {
-  const names = ['primera', 'segunda', 'tercera', 'cuarta', 'quinta', 'sexta', 'séptima', 'octava', 'novena', 'décima']
-  return names[n - 1] ?? `${n}ª`
+export function PhaseTimer({ room, receivedAt }: { room: RoomView; receivedAt: number }) {
+  const [, tick] = useState(0)
+  useEffect(() => {
+    if (!room.phaseDeadline) return
+    const timer = window.setInterval(() => tick((n) => n + 1), 100)
+    return () => window.clearInterval(timer)
+  }, [room.phaseDeadline])
+  if (!room.phaseDeadline) return null
+  const seconds = remainingSeconds(room.phaseDeadline, room.serverNow, receivedAt, performance.now())
+  const action = room.phase === 'placing' ? 'colocar' : room.phase === 'proposing' ? 'proponer' : 'votar'
+  const current = room.players.find((p) => p.id === room.currentPlayerId)
+  return <p className={`phase-timer ${seconds <= 3 ? 'phase-timer--urgent' : ''}`} role="timer">
+    ⏳ {seconds} s para {action}{room.phase === 'placing' && ` · ${room.you?.isCurrent ? '¡Tu turno!' : current?.name ?? ''}`}
+  </p>
+}
+
+export function TimerSettings({ room, send }: { room: RoomView; send: Send }) {
+  const [proposal, setProposal] = useState(room.proposalSeconds)
+  const [vote, setVote] = useState(room.voteSeconds)
+  const [placement, setPlacement] = useState(room.placementSeconds)
+  const placing = room.phase === 'placing'
+  useEffect(() => {
+    setProposal(room.proposalSeconds)
+    setVote(room.voteSeconds)
+    setPlacement(room.placementSeconds)
+  }, [room.proposalSeconds, room.voteSeconds, room.placementSeconds])
+  if (!room.you?.isHost) return <p className="hint">Propuestas: {room.proposalSeconds} s · Votos: {room.voteSeconds} s · Colocar: {room.placementSeconds} s</p>
+  return (
+    <form className="timer-settings" onSubmit={(event) => {
+      event.preventDefault()
+      send(placing
+        ? { action: 'set_timers', placementSeconds: placement }
+        : { action: 'set_timers', proposalSeconds: proposal, voteSeconds: vote, placementSeconds: placement })
+    }}>
+      {!placing && <>
+      <label>Proponer (s)<input className="input" type="number" min={5} max={300} required value={Number.isNaN(proposal) ? '' : proposal} onChange={(e) => setProposal(e.target.valueAsNumber)} /></label>
+      <label>Votar (s)<input className="input" type="number" min={5} max={300} required value={Number.isNaN(vote) ? '' : vote} onChange={(e) => setVote(e.target.valueAsNumber)} /></label>
+      </>}
+      <label>Colocar (s)<input className="input" type="number" min={5} max={300} required value={Number.isNaN(placement) ? '' : placement} onChange={(e) => setPlacement(e.target.valueAsNumber)} /></label>
+      <Button size="small" type="submit" disabled={proposal === room.proposalSeconds && vote === room.voteSeconds && placement === room.placementSeconds}>Guardar tiempos</Button>
+      {placing && <p className="hint timer-settings__note">Duración total del turno. Se mantiene el tiempo ya transcurrido.</p>}
+    </form>
+  )
 }

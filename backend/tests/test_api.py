@@ -165,8 +165,56 @@ def test_full_round_from_lobby_to_result(client):
         assert result["outcome"] in ("win", "lose")
         assert len(result["table"]) == 2
         assert all(entry["revealed"] and entry["card"] for entry in result["table"])
-        values = [entry["card"]["value"] for entry in result["table"]]
-        assert (result["outcome"] == "win") == (values[0] <= values[1])
+        values = [entry["card"]["value"] for entry in result["table"] if entry["card"]["code"] != "joker"]
+        assert (result["outcome"] == "win") == all(a <= b for a, b in zip(values, values[1:]))
+
+
+def test_hot_topics_rank_public_rooms_only(client):
+    first = create_room(client)
+    second = create_room(client)
+    private = create_room(client, isPrivate=True, password="1234")
+    store_module.store.require(first["code"]).room.topic_counts = {"frutas": 2, "animales": 1}
+    store_module.store.require(second["code"]).room.topic_counts = {"animales": 3}
+    store_module.store.require(private["code"]).room.topic_counts = {"secreto": 99}
+    assert client.get("/api/hot-topics").json()["topics"] == [
+        {"text": "animales", "rounds": 4}, {"text": "frutas", "rounds": 2},
+    ]
+
+
+def test_host_timer_changes_are_broadcast_and_used(client):
+    host = create_room(client)
+    guest = join(client, host["code"], "Beto")
+    with (
+        client.websocket_connect(f"/ws/{host['code']}?token={host['token']}") as ws_host,
+        client.websocket_connect(f"/ws/{host['code']}?token={guest['token']}") as ws_guest,
+    ):
+        ws_host.send_json({"action": "set_timers", "proposalSeconds": 90, "voteSeconds": 10, "placementSeconds": 45})
+        changed = read_until(ws_guest, lambda m: m.get("type") == "state" and m["room"]["proposalSeconds"] == 90)
+        assert changed["room"]["voteSeconds"] == 10
+        assert changed["room"]["placementSeconds"] == 45
+        ws_host.send_json({"action": "start_round"})
+        state = read_until(ws_guest, state_with("proposing"))["room"]
+        host_state = read_until(ws_host, state_with("proposing"))["room"]
+        assert state["phaseDeadline"] is not None
+        assert state["phaseDeadline"] == host_state["phaseDeadline"]
+        assert 89 <= state["phaseDeadline"] - state["serverNow"] <= 90
+        assert state["wins"] == state["winStreak"] == 0
+
+
+def test_chat_reply_is_validated_and_broadcast(client):
+    host = create_room(client)
+    guest = join(client, host["code"], "Beto")
+    with (
+        client.websocket_connect(f"/ws/{host['code']}?token={host['token']}") as ws_host,
+        client.websocket_connect(f"/ws/{host['code']}?token={guest['token']}") as ws_guest,
+    ):
+        ws_host.send_json({"action": "chat", "text": "¿Listos?"})
+        original = read_until(ws_guest, lambda m: m.get("event", {}).get("kind") == "chat")["room"]["chat"][-1]
+        ws_guest.send_json({"action": "chat", "text": "Sí", "replyToId": original["id"]})
+        state = read_until(ws_host, lambda m: m.get("event", {}).get("from") == "Beto")["room"]
+        assert state["chat"][-1]["replyTo"] == {"id": original["id"], "playerName": "Ana", "text": "¿Listos?"}
+        ws_guest.send_json({"action": "chat", "text": "inválido", "replyToId": True})
+        assert read_until(ws_guest, lambda m: m.get("type") == "error")["code"] == "invalid_reply"
 
 
 def test_you_cannot_place_out_of_turn(client):

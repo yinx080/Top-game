@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { sfx } from '../lib/sfx'
-import type { ClientMessage, RoomView } from '../types'
+import type { ChatMessage, ClientMessage, RoomView } from '../types'
 
 /**
  * Chat de la sala.
@@ -22,6 +22,7 @@ export function Chat({
 }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null)
   const [unread, setUnread] = useState(0)
   const logRef = useRef<HTMLUListElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -53,6 +54,10 @@ export function Chat({
 
   // Pegado al último mensaje, salvo que estés leyendo hacia arriba.
   useLayoutEffect(() => {
+    if (open && logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
+  }, [open])
+
+  useLayoutEffect(() => {
     const log = logRef.current
     if (!log || !open) return
     const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 90
@@ -82,8 +87,13 @@ export function Chat({
     const now = Date.now()
     if (now - lastSent.current < 600) return
     lastSent.current = now
-    send({ action: 'chat', text: clean })
+    if (replyTo && !messages.some((m) => m.id === replyTo.id)) {
+      setReplyTo(null)
+      return
+    }
+    send({ action: 'chat', text: clean, ...(replyTo ? { replyToId: replyTo.id } : {}) })
     setText('')
+    setReplyTo(null)
   }
 
   return (
@@ -127,12 +137,26 @@ export function Chat({
                   className={`chat__msg ${message.playerId === myId ? 'is-mine' : ''}`}
                   style={{ ['--pc' as string]: `var(--p${message.color})` }}
                 >
-                  <span className="chat__who">{message.playerName}</span>
+                  <div className="chat__message-head">
+                    <span className="chat__who">{message.playerName}</span>
+                    <button type="button" className="chat__reply" aria-label={`Responder a ${message.playerName}`} title="Responder"
+                      onClick={() => { setReplyTo(message); inputRef.current?.focus() }}>↩</button>
+                  </div>
+                  {message.replyTo && <blockquote className="chat__quote">
+                    <strong>{message.replyTo.playerName}</strong>
+                    <span>{message.replyTo.text}</span>
+                  </blockquote>}
                   <span className="chat__text">{message.text}</span>
                 </li>
               ))}
             </ul>
 
+            {replyTo && <div className="chat__reply-preview">
+              <div><strong>Respondiendo a {replyTo.playerName}</strong><span>{replyTo.text}</span>
+                {!messages.some((m) => m.id === replyTo.id) && <span>El mensaje salió del historial. Cancela la respuesta para enviar.</span>}
+              </div>
+              <button type="button" className="chat__reply" aria-label="Cancelar respuesta" onClick={() => setReplyTo(null)}>✕</button>
+            </div>}
             <form
               className="chat__form"
               onSubmit={(event) => {
@@ -149,13 +173,16 @@ export function Chat({
                 aria-label="Mensaje para la sala"
                 onChange={(event) => setText(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === 'Escape') setOpen(false)
+                  if (event.key === 'Escape') {
+                    if (replyTo) setReplyTo(null)
+                    else setOpen(false)
+                  }
                 }}
               />
               <button
                 type="submit"
                 className="chat__send"
-                disabled={!text.trim()}
+                disabled={!text.trim() || Boolean(replyTo && !messages.some((m) => m.id === replyTo.id))}
                 aria-label="Enviar mensaje"
               >
                 ➤

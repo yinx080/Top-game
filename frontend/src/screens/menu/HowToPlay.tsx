@@ -9,12 +9,12 @@ const STEPS = [
   {
     icon: '💡',
     title: 'Un tema para el top',
-    text: 'Cada ronda se propone y se vota un tema. Si gana el tuyo, la sala se lo queda para futuras partidas.',
+    text: 'Cada ronda se propone y se vota un tema anónimo, de hasta 180 caracteres. Si gana el tuyo, la sala se lo queda para futuras partidas.',
   },
   {
     icon: '🗣️',
     title: 'Coloca y di una palabra',
-    text: 'Por turnos, pon tu carta boca abajo donde creas que encaja y acompáñala de una palabra que merezca ese puesto.',
+    text: 'Prepara tu palabra o frase mientras juegan los demás. Tienes 30 segundos por defecto para colocar: el anfitrión puede ajustar el tiempo incluso durante el turno. Si se agota, se salta tu turno.',
   },
   {
     icon: '🏆',

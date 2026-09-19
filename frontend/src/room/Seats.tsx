@@ -53,6 +53,7 @@ export function Seats({
                   ✓
                 </span>
               )}
+              {player.timedOut && <span className="seat__badge seat__badge--warn" title="Tiempo agotado">⏳</span>}
               {(waitingProposal || waitingVote) && player.connected && (
                 <span className="seat__badge" title="Pendiente">
                   …

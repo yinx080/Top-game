@@ -15,6 +15,7 @@ SUIT_NAMES = {"S": "picas", "H": "corazones", "D": "diamantes", "C": "tréboles"
 RANK_VALUE = {rank: i + 1 for i, rank in enumerate(RANKS)}
 MIN_VALUE = 1
 MAX_VALUE = len(RANKS)
+JOKER_CHANCE = 0.01
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,12 +25,16 @@ class Card:
 
     @property
     def value(self) -> int:
-        return RANK_VALUE[self.rank]
+        return 0 if self.is_joker else RANK_VALUE[self.rank]
+
+    @property
+    def is_joker(self) -> bool:
+        return self.rank == "joker"
 
     @property
     def code(self) -> str:
         """Identificador que coincide con el nombre del PNG (`KD`, `10H`, `AS`)."""
-        return f"{self.rank}{self.suit}"
+        return "joker" if self.is_joker else f"{self.rank}{self.suit}"
 
     def as_dict(self) -> dict[str, object]:
         return {"code": self.code, "rank": self.rank, "suit": self.suit, "value": self.value}
@@ -46,7 +51,11 @@ def deal(count: int, rng: random.Random | None = None) -> list[Card]:
     está contemplado en las reglas y sigue contando como victoria.
     """
     deck = build_deck()
-    (rng or random).shuffle(deck)
+    rng = rng or random
+    rng.shuffle(deck)
     if count > len(deck):
         raise ValueError("no hay cartas suficientes en la baraja")
-    return deck[:count]
+    cards = deck[:count]
+    if cards and rng.random() < JOKER_CHANCE:
+        cards[rng.randrange(len(cards))] = Card("joker", "")
+    return cards

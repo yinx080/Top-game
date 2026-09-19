@@ -26,7 +26,7 @@ export function TableCards({
   onPlace: (slot: number) => void
   reducedMotion: boolean
 }) {
-  const { table, phase, breakIndex } = room
+  const { table, phase } = room
   const width = cardWidth(table.length + (canPlace ? 1 : 0))
 
   if (table.length === 0) {
@@ -51,15 +51,15 @@ export function TableCards({
   }
 
   return (
-    <div className="tablecards" style={{ ['--card-w' as string]: `${width}px` }}>
+    <div className="tablecards" style={{ ['--card-w' as string]: `min(${width}px, var(--card-max, ${width}px))` }}>
       {table.map((entry, index) => (
         <Fragment key={entry.playerId}>
           <Slot index={index} active={canPlace} onPlace={onPlace} />
           <PlacedCard
             entry={entry}
-            next={table[index + 1]}
+            next={table.slice(index + 1).find((item) => item.card?.code !== 'joker')}
             width={width}
-            isBreak={phase === 'result' && breakIndex === index}
+            isBreak={phase === 'result' && room.failedPlayerIds.includes(entry.playerId)}
             showValue={phase === 'result'}
             reducedMotion={reducedMotion}
           />
@@ -86,7 +86,7 @@ function PlacedCard({
   reducedMotion: boolean
 }) {
   // Sólo se puede juzgar el orden entre dos cartas ya destapadas.
-  const bothUp = entry.revealed && entry.card && next?.revealed && next.card
+  const bothUp = entry.revealed && entry.card && entry.card.code !== 'joker' && next?.revealed && next.card
   const ordered = bothUp ? entry.card!.value <= next!.card!.value : null
 
   return (
@@ -114,7 +114,7 @@ function PlacedCard({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
             >
-              {entry.card.value}
+               {entry.card.code === 'joker' ? '🃏' : entry.card.value}
             </motion.span>
           )}
         </AnimatePresence>

@@ -50,6 +50,11 @@
 .menu__floater:nth-child(7) { top: 33%; }
 .menu__floater:nth-child(8) { top: 80%; }
 
+.menu__emoji { font-size: clamp(40px, 6vw, 80px); opacity: 0.24; margin-left: 4%; animation-direction: reverse; }
+.hot-topics { padding-left: 22px; margin: 12px 0 0; }
+.hot-topics li { padding: 6px 0; overflow-wrap: anywhere; }
+.hot-topics small { display: block; color: var(--gold); font-size: 11px; }
+
 @keyframes drift {
   0%,
   100% {
