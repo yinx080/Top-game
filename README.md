@@ -215,6 +215,27 @@ para la interfaz: arcade reconocible sin caer en la fuente de píxeles ilegible.
 
 ---
 
+## Despliegue (Docker / Railway)
+
+Todo el juego cabe en **una sola imagen**: un proceso `uvicorn` sirve la API REST,
+el WebSocket y el build del frontend en el mismo origen, así que no hay CORS ni
+servicios extra que coordinar (el estado vive en memoria y no admite varias
+réplicas: `numReplicas` se queda en 1).
+
+```bash
+docker build -t topcard .
+docker run --rm -p 8000:8000 topcard    # http://localhost:8000
+# o bien
+docker compose up --build
+```
+
+En Railway basta con conectar el repositorio: `railway.json` fija el builder
+Dockerfile y el healthcheck en `/api/health`. Railway inyecta `$PORT` y el
+contenedor lo respeta (`8000` por defecto en local).
+
+Variables opcionales: `TOPCARD_CORS_ORIGINS`, `TOPCARD_MIN_PLAYERS`,
+`TOPCARD_MAX_PLAYERS`, `TOPCARD_REVEAL_STEP`, `TOPCARD_DISCONNECT_GRACE`.
+
 ## Créditos
 
 Cartas y textura de madera: <a href="http://www.freepik.com">Designed by
