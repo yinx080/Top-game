@@ -88,6 +88,7 @@ export function Menu() {
             className="menu__floater"
             src={`/art/cards/${card}.png`}
             alt=""
+            draggable={false}
             style={{ '--i': index } as CSSProperties}
           />
         ))}
@@ -217,7 +218,7 @@ export function Menu() {
         <footer className="menu__footer">
           <span className="muted">
             Cartas y textura de madera:{' '}
-            <a href="https://www.freepik.com" target="_blank" rel="noreferrer">
+            <a href="https://www.freepik.com" target="_blank" rel="noreferrer noopener">
               Designed by Macrovector / Freepik
             </a>
           </span>

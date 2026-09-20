@@ -1,0 +1,14 @@
+# Equivalente local de lo que corre en Railway: un solo servicio.
+services:
+  topcard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      # Mismo origen para API, WS y estáticos: CORS sólo hace falta si algún
+      # día el frontend se sirve aparte.
+      # TOPCARD_CORS_ORIGINS: "https://mi-dominio.up.railway.app"
+    restart: unless-stopped

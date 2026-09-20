@@ -6,6 +6,7 @@ import dataclasses
 import pytest
 from fastapi.testclient import TestClient
 
+from app import api as api_module
 from app import store as store_module
 from app.config import settings as base_settings
 from app.main import create_app
@@ -20,6 +21,9 @@ def fast_reveal(monkeypatch):
 
 @pytest.fixture
 def client():
+    # Todos los tests salen de la misma «IP», así que sin esto el limitador de
+    # creación de salas acabaría rechazando a los últimos del fichero.
+    api_module.reset_limits()
     store_module.store._rooms.clear()
     with TestClient(create_app()) as test_client:
         yield test_client
@@ -327,3 +331,70 @@ def test_an_empty_chat_message_is_refused(client):
         read_until(ws, lambda m: m.get("type") == "welcome")
         ws.send_json({"action": "chat", "text": "    "})
         assert read_until(ws, lambda m: m.get("type") == "error")["code"] == "empty_message"
+
+
+# --------------------------------------------------------------------- seguridad
+
+
+def test_the_spa_catch_all_cannot_escape_the_build_folder(client):
+    """`/{ruta}` sirve el index, nunca un fichero de fuera de `frontend/dist`."""
+    for path in (
+        "../../backend/app/config.py",
+        "..%2f..%2fbackend%2fapp%2fconfig.py",
+        "....//....//backend/app/config.py",
+    ):
+        response = client.get(f"/{path}")
+        assert response.status_code == 200, path
+        assert "TOPCARD_CORS_ORIGINS" not in response.text, path
+        assert response.headers["content-type"].startswith("text/html"), path
+
+
+def test_responses_carry_the_security_headers(client):
+    headers = client.get("/api/health").headers
+    assert headers["X-Content-Type-Options"] == "nosniff"
+    assert headers["X-Frame-Options"] == "DENY"
+    assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
+
+
+def test_an_empty_search_does_not_list_private_rooms(client):
+    create_room(client, name="Mesa pública")
+    create_room(client, name="Sólo amigos", isPrivate=True, password="clave")
+
+    names = {r["name"] for r in client.get("/api/rooms/search").json()["rooms"]}
+    assert names == {"Mesa pública"}
+    # Buscándola por su nombre sí aparece: lo que no vale es el listado a pelo.
+    found = client.get("/api/rooms/search", params={"q": "amigos"}).json()["rooms"]
+    assert [r["name"] for r in found] == ["Sólo amigos"]
+
+
+def test_guessing_a_room_password_gets_throttled(client):
+    seat = create_room(client, isPrivate=True, password="clave-buena")
+    code = seat["code"]
+
+    codes = []
+    for i in range(12):
+        response = client.post(
+            f"/api/rooms/{code}/join", json={"playerName": f"Ladrón {i}", "password": "nope"}
+        )
+        codes.append(response.status_code)
+    assert codes[0] == 403
+    assert 429 in codes, codes
+    # Con la contraseña buena tampoco se entra mientras dura el castigo.
+    blocked = client.post(
+        f"/api/rooms/{code}/join", json={"playerName": "Beto", "password": "clave-buena"}
+    )
+    assert blocked.status_code == 429
+
+
+def test_a_flood_of_websocket_actions_is_cut_off(client):
+    from app.ws import WS_FLOOD_STRIKES
+
+    host = create_room(client)
+    with client.websocket_connect(f"/ws/{host['code']}?token={host['token']}") as ws:
+        read_until(ws, lambda m: m.get("type") == "welcome")
+        with pytest.raises(Exception):
+            for _ in range(WS_FLOOD_STRIKES * 3):
+                ws.send_json({"action": "ping"})
+            # El servidor cierra con 4429; leer después revienta.
+            for _ in range(WS_FLOOD_STRIKES * 3):
+                ws.receive_json()

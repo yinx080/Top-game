@@ -1,12 +1,23 @@
 """Reglas del juego: ciclo de ronda, temas, colocación y condición de victoria."""
 from __future__ import annotations
 
+import contextlib
 import pytest
 
 from app.config import settings
 from app.deck import RANK_VALUE, Card, build_deck
 from app.errors import Conflict, Forbidden, GameError
 from app.room import Phase, Room
+
+
+class FakeSocket:
+    """Recoge lo que la sala difunde, para comprobar qué ven los clientes."""
+
+    def __init__(self) -> None:
+        self.sent: list[dict] = []
+
+    async def send_json(self, payload: dict) -> None:
+        self.sent.append(payload)
 
 
 def make_room(names=("Ana", "Beto", "Cris"), **kwargs) -> Room:
@@ -590,7 +601,7 @@ def test_placement_deadlines_reset_only_when_the_turn_changes(monkeypatch):
     from app import room as room_module
 
     now = 1000.0
-    monkeypatch.setattr(room_module.time, "time", lambda: now)
+    monkeypatch.setattr(room_module.time, "monotonic", lambda: now)
     room = make_room(("Ana", "Beto", "Cris", "Dani"))
     run_topic_phase(room)
     first, second, third, fourth = room.turn_order
@@ -615,7 +626,7 @@ def test_expired_turn_cannot_place_and_advances_once(monkeypatch):
     from app import room as room_module
 
     now = 1000.0
-    monkeypatch.setattr(room_module.time, "time", lambda: now)
+    monkeypatch.setattr(room_module.time, "monotonic", lambda: now)
     room = make_room()
     run_topic_phase(room)
     first, second, _ = room.turn_order
@@ -725,7 +736,7 @@ def test_host_can_edit_each_turn_duration_without_resetting_elapsed_time(monkeyp
     from app.views import room_view
 
     now = 1000.0
-    monkeypatch.setattr(room_module.time, "time", lambda: now)
+    monkeypatch.setattr(room_module.time, "monotonic", lambda: now)
     room = make_room()
     assert room.placement_seconds == 30
     run_topic_phase(room)
@@ -773,7 +784,7 @@ async def test_editing_duration_cancels_old_timer_and_shortening_can_expire_now(
         assert original_task.cancelled()
         assert room.phase_deadline == deadline + 30
         # Han pasado 20 segundos desde el inicio de un turno de 60.
-        room.phase_deadline = time.time() + 40
+        room.phase_deadline = time.monotonic() + 40
         room.set_timers(room.host_id, room.proposal_seconds, room.vote_seconds, 5)
         await runtime.broadcast()
         async def wait_for_timeout():
@@ -781,6 +792,114 @@ async def test_editing_duration_cancels_old_timer_and_shortening_can_expire_now(
                 await asyncio.sleep(0.001)
         await asyncio.wait_for(wait_for_timeout(), timeout=1)
         assert room.players[first].timed_out
-        assert 4 < room.phase_deadline - time.time() <= 5
+        assert 4 < room.phase_deadline - time.monotonic() <= 5
+    finally:
+        runtime.cancel_timers()
+
+
+@pytest.mark.asyncio
+async def test_timer_waking_up_early_still_expires_the_turn(monkeypatch):
+    """Regresión: el temporizador despertaba antes de tiempo y dejaba la sala
+    muerta.
+
+    Los plazos iban en `time.time()` y la espera en el reloj monotónico de
+    `asyncio.sleep`. Si el primero se quedaba corto, `timeout_turn()` no hacía
+    nada, el plazo no cambiaba y por tanto no se rearmaba ningún temporizador:
+    nadie volvía a pasar el turno y `place_card` rechazaba para siempre con
+    `turn_expired`, así que al jugador no le quedaba más que salirse.
+    """
+    import asyncio
+
+    from app.room import mono
+    from app.store import RoomRuntime
+
+    room = make_room()
+    run_topic_phase(room)
+    runtime = RoomRuntime(room)
+    first = room.current_player_id
+    socket = FakeSocket()
+    runtime.attach(first, socket)
+    room.phase_deadline = mono() + 0.05
+    deadline = room.phase_deadline
+
+    real_sleep = asyncio.sleep
+    calls = []
+
+    async def early_sleep(delay):
+        # Despierta siempre antes de tiempo, como haría un reloj desajustado.
+        calls.append(delay)
+        await real_sleep(min(delay, 0.01))
+
+    monkeypatch.setattr(asyncio, "sleep", early_sleep)
+    try:
+        await asyncio.wait_for(runtime._run_phase_timer(deadline), timeout=2)
+    finally:
+        monkeypatch.undo()
+        runtime.cancel_timers()
+
+    assert len(calls) > 1, "debería haber reintentado en vez de darlo por vencido"
+    assert room.players[first].timed_out
+    assert room.current_player_id != first
+    assert room.phase_deadline != deadline
+    # Y, sobre todo, los clientes tienen que enterarse: saltar el turno por
+    # dentro sin difundir el evento dejaba la partida congelada en pantalla.
+    kinds = [p.get("event", {}).get("kind") for p in socket.sent]
+    assert "turn_timeout" in kinds, kinds
+    assert socket.sent[-1]["room"]["currentPlayerId"] != first
+
+
+@pytest.mark.asyncio
+async def test_dead_phase_timer_is_rearmed_even_with_the_same_deadline():
+    """Si la tarea del temporizador muere, hay que volver a armarla: antes se
+    comparaba sólo el plazo y una sala sin temporizador se quedaba colgada."""
+    import asyncio
+
+    from app.store import RoomRuntime
+
+    room = make_room()
+    run_topic_phase(room)
+    runtime = RoomRuntime(room)
+    try:
+        await runtime.broadcast()
+        first_task = runtime.phase_task
+        assert first_task is not None
+
+        # La tarea muere sin que el plazo cambie (un fallo, una cancelación...).
+        first_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await first_task
+        assert runtime.scheduled_deadline == room.phase_deadline
+
+        runtime.schedule_phase_timer()
+        assert runtime.phase_task is not first_task
+        assert not runtime.phase_task.done()
+    finally:
+        runtime.cancel_timers()
+
+
+@pytest.mark.asyncio
+async def test_sweep_rearms_a_room_left_without_timer():
+    """El barrendero es la última red: recupera una sala sin temporizador."""
+    import asyncio
+
+    from app.store import RoomStore
+
+    store = RoomStore()
+    runtime = store.create(name="Sala", is_private=False, password=None, max_players=8)
+    for name in ("Ana", "Beto", "Cris"):
+        player = runtime.room.add_player(name)
+        runtime.room.set_connected(player.id, True)
+    run_topic_phase(runtime.room)
+    try:
+        await runtime.broadcast()
+        task = runtime.phase_task
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+        await store.sweep()
+
+        assert runtime.phase_task is not task
+        assert not runtime.phase_task.done()
     finally:
         runtime.cancel_timers()

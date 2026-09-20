@@ -7,11 +7,10 @@ tuya y aún la tienes en la mano, o si ya se ha destapado sobre la mesa.
 from __future__ import annotations
 
 from typing import Any
-import time
 
 from .config import settings
 from .deck import MAX_VALUE, MIN_VALUE
-from .room import Phase, Room
+from .room import Phase, Room, mono
 
 
 def room_summary(room: Room) -> dict[str, Any]:
@@ -151,7 +150,9 @@ def room_view(room: Room, viewer_id: str | None) -> dict[str, Any]:
         "proposalSeconds": room.proposal_seconds,
         "voteSeconds": room.vote_seconds,
         "phaseDeadline": room.phase_deadline,
-        "serverNow": time.time(),
+        # Mismo reloj que `phase_deadline`: el cliente sólo usa la diferencia
+        # entre ambos, así que no depende del reloj del navegador ni del huso.
+        "serverNow": mono(),
         "placementSeconds": room.placement_seconds,
         "savedTopics": len(room.topic_pool),
         "chat": _chat_view(room),

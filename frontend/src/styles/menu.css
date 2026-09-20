@@ -14,6 +14,10 @@
   position: fixed;
   inset: 0;
   z-index: 0;
+  /* Decoración pura: ni se selecciona, ni se arrastra, ni recibe clics. */
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
   background:
     radial-gradient(ellipse 80% 60% at 50% 0%, rgb(63 182 168 / 12%), transparent 70%),
     radial-gradient(ellipse 70% 50% at 50% 100%, rgb(224 78 57 / 10%), transparent 70%),
@@ -50,7 +54,13 @@
 .menu__floater:nth-child(7) { top: 33%; }
 .menu__floater:nth-child(8) { top: 80%; }
 
-.menu__emoji { font-size: clamp(40px, 6vw, 80px); opacity: 0.24; margin-left: 4%; animation-direction: reverse; }
+.menu__emoji {
+  font-size: clamp(40px, 6vw, 80px);
+  opacity: 0.24;
+  margin-left: 4%;
+  animation-direction: reverse;
+  -webkit-user-drag: none;
+}
 .hot-topics { padding-left: 22px; margin: 12px 0 0; }
 .hot-topics li { padding: 6px 0; overflow-wrap: anywhere; }
 .hot-topics small { display: block; color: var(--gold); font-size: 11px; }

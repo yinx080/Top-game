@@ -5,9 +5,9 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .api import router as api_router
@@ -18,7 +18,54 @@ from .ws import router as ws_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
-DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+DIST = (Path(__file__).resolve().parents[2] / "frontend" / "dist").resolve()
+
+# Cabeceras de seguridad para todo lo que sale del servidor. Lo único de fuera
+# que carga el juego son las tipografías de Google (`index.html`); las cartas y
+# los sonidos viajan en el propio build, así que el resto puede ir cerrado.
+FONT_CSS = "https://fonts.googleapis.com"
+FONT_FILES = "https://fonts.gstatic.com"
+CSP = (
+    "default-src 'self'; "
+    "img-src 'self' data:; "
+    # `unsafe-inline` es inevitable: React pinta los colores de cada jugador en
+    # el atributo `style` de cada elemento.
+    f"style-src 'self' 'unsafe-inline' {FONT_CSS}; "
+    "script-src 'self'; "
+    "connect-src 'self' ws: wss:; "
+    f"font-src 'self' data: {FONT_FILES}; "
+    "media-src 'self' data:; "
+    "object-src 'none'; "
+    "base-uri 'none'; "
+    "frame-ancestors 'none'; "
+    "form-action 'self'"
+)
+SECURITY_HEADERS = {
+    "Content-Security-Policy": CSP,
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=(), payment=()",
+}
+
+
+def safe_dist_file(relative: str) -> Path | None:
+    """Resuelve una ruta pedida por el navegador dentro de `frontend/dist`.
+
+    `DIST / relative` no vale por sí solo: con `..`, o con una ruta absoluta,
+    `pathlib` se sale de la carpeta y serviría cualquier fichero de la máquina.
+    Aquí se resuelve y se comprueba que el resultado sigue colgando de `DIST`.
+    """
+    if not relative or "\x00" in relative:
+        return None
+    try:
+        candidate = (DIST / relative).resolve()
+    except (OSError, ValueError):
+        return None
+    if candidate != DIST and DIST not in candidate.parents:
+        return None
+    return candidate if candidate.is_file() else None
 
 
 @asynccontextmanager
@@ -46,6 +93,13 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next) -> Response:
+        response = await call_next(request)
+        for header, value in SECURITY_HEADERS.items():
+            response.headers.setdefault(header, value)
+        return response
+
     @app.exception_handler(GameError)
     async def game_error_handler(_: Request, exc: GameError) -> JSONResponse:
         return JSONResponse(
@@ -64,9 +118,23 @@ def create_app() -> FastAPI:
 
         @app.get("/{full_path:path}", include_in_schema=False)
         async def spa(full_path: str) -> FileResponse:
-            candidate = DIST / full_path
-            if full_path and candidate.is_file():
+            # Una ruta de API que no existe es un 404, no el index: devolver el
+            # HTML enmascararía errores del cliente.
+            if full_path.startswith(("api/", "ws/")):
+                raise HTTPException(status_code=404, detail="not_found")
+            candidate = safe_dist_file(full_path)
+            if candidate is not None:
                 return FileResponse(candidate)
+
+            # Las páginas SEO estáticas pueden vivir como `ruta/index.html`
+            # dentro del build y seguir usando URLs limpias, por ejemplo
+            # `/como-se-juega` en vez de `/como-se-juega/index.html`.
+            clean_path = full_path.strip("/")
+            if clean_path:
+                section_index = safe_dist_file(f"{clean_path}/index.html")
+                if section_index is not None:
+                    return FileResponse(section_index)
+
             return FileResponse(DIST / "index.html")
 
     return app

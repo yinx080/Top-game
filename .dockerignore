@@ -1,0 +1,27 @@
+.git
+.gitattributes
+.gitignore
+
+# Assets originales: sólo los usa scripts/build_assets.py, no el runtime.
+data/
+scripts/
+ideas.md
+dev.ps1
+README.md
+
+**/node_modules
+**/dist
+**/__pycache__
+**/*.py[cod]
+.venv
+venv
+env
+.pytest_cache
+backend/requirements-dev.txt
+backend/tests
+frontend/tests
+
+.idea
+.vscode
+.DS_Store
+Thumbs.db
