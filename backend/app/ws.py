@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 from .errors import Conflict, GameError
+from .ratelimit import RateLimiter
 from .room import Phase, Player, Room
 from .store import RoomRuntime, store
 
@@ -22,6 +23,17 @@ router = APIRouter()
 CLOSE_NO_ROOM = 4404
 CLOSE_BAD_TOKEN = 4401
 CLOSE_REMOVED = 4403
+CLOSE_FLOOD = 4429
+
+# Caudal de acciones por conexión. Cada acción aceptada difunde el estado a
+# todos los jugadores de la sala, así que una sola conexión desbocada multiplica
+# el trabajo por el número de asientos. 25 de golpe y 10/s después dan de sobra
+# para jugar (un humano no llega ni de lejos) y cortan el grifo a un bucle.
+WS_ACTION_RATE = 10.0
+WS_ACTION_BURST = 25
+# Mensajes seguidos por encima del cupo antes de cerrar la conexión: un pico
+# puntual se perdona, un bucle infinito no.
+WS_FLOOD_STRIKES = 60
 
 
 def _find_by_token(room: Room, token: str) -> Player | None:
@@ -90,7 +102,7 @@ async def _dispatch(
     elif action == "place":
         try:
             slot = int(data.get("slot"))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             raise GameError("bad_slot", "Esa posición no existe en la mesa.") from None
         answer = str(data.get("answer") or "")
         room.place_card(player_id, slot, answer)
@@ -175,6 +187,8 @@ async def game_socket(websocket: WebSocket, code: str, token: str = Query(defaul
         return
 
     player_id, player_name = player.id, player.name
+    actions = RateLimiter(rate=WS_ACTION_RATE, burst=WS_ACTION_BURST)
+    strikes = 0
     async with runtime.lock:
         runtime.attach(player_id, websocket)
         runtime.room.set_connected(player_id, True)
@@ -197,6 +211,26 @@ async def game_socket(websocket: WebSocket, code: str, token: str = Query(defaul
 
             if not isinstance(message, dict):
                 continue
+
+            # El cupo se cobra antes de mirar qué acción es: lo que se quiere
+            # evitar es el trabajo, no una acción concreta.
+            if not actions.allow(player_id):
+                strikes += 1
+                if strikes >= WS_FLOOD_STRIKES:
+                    await runtime.send_to(
+                        websocket,
+                        {"type": "error", "code": "flood", "message": "Demasiados mensajes."},
+                    )
+                    await _safe_close(websocket, CLOSE_FLOOD)
+                    break
+                if strikes == 1:
+                    await runtime.send_to(
+                        websocket,
+                        {"type": "error", "code": "too_fast", "message": "Vas demasiado rápido."},
+                    )
+                continue
+            strikes = 0
+
             action = str(message.get("action") or "")
 
             if action == "ping":
