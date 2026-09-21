@@ -13,6 +13,7 @@ import { useRoom } from '../state/useRoom'
 import { useSession } from '../state/useSession'
 import type { Seat } from '../types'
 import '../styles/room.css'
+import { LowTimeAlert } from '../room/LowTimeAlert'
 
 export function Room({ seat }: { seat: Seat }) {
   const { room, receivedAt, status, fatal, connect, disconnect, leave, send, toasts } = useRoom()
@@ -186,7 +187,7 @@ export function Room({ seat }: { seat: Seat }) {
           Reconectando con la sala…
         </div>
       )}
-
+        <LowTimeAlert room={room} receivedAt={receivedAt} />
       <div className="toasts">
         <AnimatePresence initial={false}>
           {toasts.map((toast) => (

@@ -39,10 +39,91 @@ function ensureContext(): AudioContext | null {
   return context
 }
 
+/** Tic-tac de «se acaba el tiempo». Es un fichero real (no se sintetiza) y se decodifica una sola vez. */
+const TICK_URL = '/art/tictac.mp3'
+let tickBuffer: AudioBuffer | null = null
+let tickLoading = false
+let tickWanted = false
+let tickSource: AudioBufferSourceNode | null = null
+let tickGain: GainNode | null = null
+
+function loadTick(ctx: AudioContext): void {
+  if (tickBuffer || tickLoading) return
+  tickLoading = true
+  fetch(TICK_URL)
+    .then((response) => {
+      if (!response.ok) throw new Error(`tictac ${response.status}`)
+      return response.arrayBuffer()
+    })
+    .then((data) => ctx.decodeAudioData(data))
+    .then((buffer) => {
+      tickBuffer = buffer
+      // Si el aviso empezó mientras se descargaba, arranca ahora.
+      if (tickWanted && !tickSource) playTick()
+    })
+    .catch(() => {
+      tickLoading = false // se reintentará la próxima vez
+    })
+}
+
+function playTick(): void {
+  if (!context || !master || !tickBuffer || context.state !== 'running') return
+  stopTick(false)
+  const source = context.createBufferSource()
+  const gain = context.createGain()
+  source.buffer = tickBuffer
+  source.connect(gain).connect(master)
+  source.onended = () => {
+    if (tickSource === source) {
+      tickSource = null
+      tickGain = null
+    }
+  }
+  source.start()
+  tickSource = source
+  tickGain = gain
+}
+
+function stopTick(fade: boolean): void {
+  if (!tickSource || !tickGain || !context) return
+  const source = tickSource
+  const gain = tickGain
+  tickSource = null
+  tickGain = null
+  const now = context.currentTime
+  try {
+    if (fade) {
+      gain.gain.setValueAtTime(gain.gain.value, now)
+      gain.gain.linearRampToValueAtTime(0, now + 0.12)
+      source.stop(now + 0.14)
+    } else {
+      source.stop()
+    }
+  } catch {
+    /* ya estaba parado */
+  }
+}
+
 export const sfx = {
   /** Se llama en el primer clic del usuario para desbloquear el audio. */
   unlock(): void {
-    ensureContext()
+    const ctx = ensureContext()
+    if (ctx) loadTick(ctx)
+  },
+
+  /** Empieza el tic-tac (una sola vez, desde el principio). Respeta volumen y silencio. */
+  startTicking(): void {
+    tickWanted = true
+    const ctx = ensureContext()
+    if (!ctx) return
+    if (tickBuffer) playTick()
+    else loadTick(ctx)
+  },
+
+  /** Corta el tic-tac con un fundido corto para que no haya chasquido. */
+  stopTicking(): void {
+    tickWanted = false
+    stopTick(true)
   },
 
   setVolume(next: number): void {
