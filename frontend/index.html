@@ -27,6 +27,9 @@
       href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <link rel="preload" as="image" href="/art/cards/AH.png" />
+    <link rel="preload" as="image" href="/art/cards/joker.png" />
+    <link rel="preload" as="image" href="/art/cards/KS.png" />
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -37,36 +40,101 @@
     }
     </script>
     <style>
-    #boot {
-    position: fixed; inset: 0; z-index: 9999;
-    display: flex; align-items: center; justify-content: center; overflow: hidden;
-    background:
-      radial-gradient(ellipse 80% 60% at 50% 0%, rgb(63 182 168 / 12%), transparent 70%),
-      radial-gradient(ellipse 70% 50% at 50% 100%, rgb(224 78 57 / 10%), transparent 70%),
-      repeating-linear-gradient(45deg, rgb(255 255 255 / 2.2%) 0 2px, transparent 2px 16px),
-      repeating-linear-gradient(-45deg, rgb(255 255 255 / 2.2%) 0 2px, transparent 2px 16px),
-      linear-gradient(180deg, #191627, #100e1a 60%, #0a0810);
-    transition: opacity 0.4s ease;
-  }
-      #boot.is-hiding { opacity: 0; pointer-events: none; }
-      #boot video {
-        display: block; width: min(120vw, 960px); aspect-ratio: 4 / 3;
-        -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent),
-                            linear-gradient(180deg, transparent, #000 12%, #000 88%, transparent);
-        -webkit-mask-composite: source-in;
-        mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent),
-                    linear-gradient(180deg, transparent, #000 12%, #000 88%, transparent);
-        mask-composite: intersect;
+      /* ---------- Pantalla de arranque: animación renderizada en vivo (CSS puro, sin JS) ---------- */
+      #boot {
+        position: fixed; inset: 0; z-index: 9999;
+        display: flex; align-items: center; justify-content: center; overflow: hidden;
+        background:
+          radial-gradient(ellipse 80% 60% at 50% 0%, rgb(63 182 168 / 12%), transparent 70%),
+          radial-gradient(ellipse 70% 50% at 50% 100%, rgb(224 78 57 / 10%), transparent 70%),
+          repeating-linear-gradient(45deg, rgb(255 255 255 / 2.2%) 0 2px, transparent 2px 16px),
+          repeating-linear-gradient(-45deg, rgb(255 255 255 / 2.2%) 0 2px, transparent 2px 16px),
+          linear-gradient(180deg, #191627, #100e1a 60%, #0a0810);
+        transition: opacity 0.4s ease;
       }
-      @media (prefers-reduced-motion: reduce) { #boot video { display: none; } }
+      #boot.is-hiding { opacity: 0; pointer-events: none; }
+
+      /* Escenario 4:3. TODO se mide en múltiplos de --w, así que escala solo:
+         para hacer la animación más grande o más pequeña basta con tocar --w. */
+      .boot__stage {
+        --w: min(120vw, 960px, 160vh);
+        position: relative; flex: none;
+        width: var(--w); aspect-ratio: 4 / 3;
+      }
+
+      /* Cartas: parten pequeñas y girando desde debajo del título y se abren en abanico.
+         Escala, giro y desplazamiento van con animaciones separadas para poder ajustarlas por
+         separado. Variables (× --w salvo los tiempos):
+         --at entrada · --tt/--td cuándo y cuánto viaja · --dx/--dy destino · --rot giro final · --r0 giro inicial */
+      .boot__card {
+        position: absolute; left: 50%; top: 50%;
+        width: calc(var(--w) * 0.295); height: auto;
+        margin: calc(var(--w) * -0.2094) 0 0 calc(var(--w) * -0.1475);
+        animation:
+          boot-scale 0.5s cubic-bezier(0.4, 0.1, 0.3, 1) var(--at) both,
+          boot-spin 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) var(--at) both,
+          boot-travel var(--td) cubic-bezier(0.3, 0.6, 0.3, 1) var(--tt) both,
+          boot-fade 0.12s linear var(--at) both,
+          boot-blur 0.3s ease-out var(--at) both;
+      }
+      .boot__card--ace   { --at: 0.40s; --tt: 0.60s; --td: 0.28s; --sx: -0.085; --sy: 0.095; --dx: -0.1252; --dy: -0.0115; --rot: -12deg;   --r0: -150deg; --s: 1.042; }
+      .boot__card--joker { --at: 0.42s; --tt: 0.58s; --td: 0.25s; --sx: -0.100; --sy: 0.040; --dx: -0.0328; --dy: -0.042;  --rot: -0.3deg;  --r0: -130deg; --s: 1.039; }
+      .boot__card--king  { --at: 0.44s; --tt: 0.56s; --td: 0.22s; --sx: -0.090; --sy: 0.070; --dx: 0.115;   --dy: -0.021;  --rot: 12deg;    --r0: -110deg; --s: 1.058; }
+
+      @keyframes boot-scale  { from { scale: 0.1; } to { scale: var(--s); } }
+      @keyframes boot-spin   { from { rotate: var(--r0); } to { rotate: var(--rot); } }
+      @keyframes boot-travel {
+        from { translate: calc(var(--w) * var(--sx)) calc(var(--w) * var(--sy)); }
+        to   { translate: calc(var(--w) * var(--dx)) calc(var(--w) * var(--dy)); }
+      }
+      @keyframes boot-fade { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes boot-blur { from { filter: blur(4px); } to { filter: blur(0); } }
+
+      /* Título: sube desde abajo y se asienta en el centro. «CARD» llega un pelín después. */
+      .boot__word {
+        position: absolute;
+        left: calc(50% + var(--w) * var(--wx));
+        top: calc(50% - var(--w) * 0.019);
+        font-family: 'Bungee', 'Arial Black', system-ui, sans-serif;
+        font-size: calc(var(--w) * 0.077);
+        line-height: 1; white-space: nowrap;
+        text-box: trim-both cap alphabetic; /* centra por la altura de las mayúsculas */
+        paint-order: stroke fill;
+        animation:
+          boot-word var(--wd) cubic-bezier(0.4, 0, 0.2, 1) var(--wt) both,
+          boot-fade 0.15s linear calc(var(--wt) - 0.05s) both;
+      }
+      .boot__word--top {
+        --wx: -0.148; --wt: 0.27s; --wd: 0.28s;
+        color: #fff;
+        -webkit-text-stroke: calc(var(--w) * 0.0055) #b3382b;
+        text-shadow:
+          calc(var(--w) * -0.0016) calc(var(--w) * -0.0016) 0 #3fb6a8,
+          0 calc(var(--w) * 0.008) calc(var(--w) * 0.012) rgb(0 0 0 / 50%);
+      }
+      .boot__word--card {
+        --wx: 0.073; --wt: 0.31s; --wd: 0.33s;
+        color: #f5b93b;
+        -webkit-text-stroke: calc(var(--w) * 0.0055) #8c2f17;
+        text-shadow: 0 calc(var(--w) * 0.008) calc(var(--w) * 0.012) rgb(0 0 0 / 50%);
+      }
+      @keyframes boot-word {
+        from { transform: translate(-50%, calc(-50% + var(--w) * 0.24)); }
+        to   { transform: translate(-50%, -50%); }
+      }
+
+      @media (prefers-reduced-motion: reduce) { .boot__stage { display: none; } }
     </style>
   </head>
   <body>
     <div id="boot" aria-hidden="true">
-      <video muted playsinline autoplay preload="auto" disablepictureinpicture>
-        <source src="/art/boot.mp4" type="video/mp4" />
-        <source src="/art/boot.webm" type="video/webm" />
-      </video>
+      <div class="boot__stage">
+        <img class="boot__card boot__card--ace" src="/art/cards/AH.png" alt="" width="300" height="426" />
+        <img class="boot__card boot__card--joker" src="/art/cards/joker.png" alt="" width="300" height="426" />
+        <img class="boot__card boot__card--king" src="/art/cards/KS.png" alt="" width="300" height="426" />
+        <span class="boot__word boot__word--top">TOP</span>
+        <span class="boot__word boot__word--card">CARD</span>
+      </div>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

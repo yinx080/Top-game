@@ -1,31 +1,26 @@
-const MIN_SECONDS = 1.2 // the strong motion ends ~0.9 s; this lets it settle
+// La animación de arranque es CSS puro (ver index.html). Sus movimientos fuertes terminan
+// hacia los 0,9 s; el resto es tiempo para verla asentada antes de quitarla.
+const MIN_MS = 1400
 
 const appPainted = () =>
   document.fonts.ready.then(
     () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
   )
 
-function playedFor(video: HTMLVideoElement, seconds: number, timeoutMs: number) {
-  return new Promise<void>((resolve) => {
-    const done = () => {
-      clearTimeout(timer)
-      video.removeEventListener('timeupdate', check)
-      resolve()
-    }
-    const check = () => { if (video.currentTime >= seconds || video.ended) done() }
-    const timer = setTimeout(done, timeoutMs)
-    video.addEventListener('timeupdate', check)
-    check()
-  })
-}
-
 export async function dismissBoot() {
   const boot = document.getElementById('boot')
   if (!boot) return
-  const video = boot.querySelector('video')
   await appPainted()
-  // If the video never started (autoplay blocked, slow network), don't wait for it.
-  if (video && video.currentTime > 0) await playedFor(video, MIN_SECONDS, 1500)
+
+  // Con «reducir movimiento» el escenario está oculto: no hay nada que esperar.
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (!reduced) {
+    // La animación arranca cuando el navegador pinta la página por primera vez.
+    const firstPaint = performance.getEntriesByName('first-paint')[0]?.startTime ?? 0
+    const wait = MIN_MS - (performance.now() - firstPaint)
+    if (wait > 0) await new Promise<void>((r) => setTimeout(r, wait))
+  }
+
   boot.classList.add('is-hiding')
   setTimeout(() => boot.remove(), 500)
 }
