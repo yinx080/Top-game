@@ -37,17 +37,17 @@
     }
     </script>
     <style>
-      #boot {
-        position: fixed; inset: 0; z-index: 9999;
-        display: grid; place-items: center; overflow: hidden;
-        background:
-          radial-gradient(ellipse 80% 60% at 50% 0%, rgb(63 182 168 / 12%), transparent 70%),
-          radial-gradient(ellipse 70% 50% at 50% 100%, rgb(224 78 57 / 10%), transparent 70%),
-          repeating-linear-gradient(45deg, rgb(255 255 255 / 2.2%) 0 2px, transparent 2px 16px),
-          repeating-linear-gradient(-45deg, rgb(255 255 255 / 2.2%) 0 2px, transparent 2px 16px),
-          linear-gradient(180deg, #191627, #100e1a 60%, #0a0810);
-        transition: opacity 0.4s ease;
-      }
+    #boot {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 0%, rgb(63 182 168 / 12%), transparent 70%),
+      radial-gradient(ellipse 70% 50% at 50% 100%, rgb(224 78 57 / 10%), transparent 70%),
+      repeating-linear-gradient(45deg, rgb(255 255 255 / 2.2%) 0 2px, transparent 2px 16px),
+      repeating-linear-gradient(-45deg, rgb(255 255 255 / 2.2%) 0 2px, transparent 2px 16px),
+      linear-gradient(180deg, #191627, #100e1a 60%, #0a0810);
+    transition: opacity 0.4s ease;
+  }
       #boot.is-hiding { opacity: 0; pointer-events: none; }
       #boot video {
         display: block; width: min(120vw, 960px); aspect-ratio: 4 / 3;
