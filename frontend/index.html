@@ -1,32 +1,44 @@
-<style>
-  #boot {
-    position: fixed; inset: 0; z-index: 9999;
-    display: grid; place-items: center; overflow: hidden;
-    background:
-      radial-gradient(ellipse 80% 60% at 50% 0%, rgb(63 182 168 / 12%), transparent 70%),
-      radial-gradient(ellipse 70% 50% at 50% 100%, rgb(224 78 57 / 10%), transparent 70%),
-      repeating-linear-gradient(45deg, rgb(255 255 255 / 2.2%) 0 2px, transparent 2px 16px),
-      repeating-linear-gradient(-45deg, rgb(255 255 255 / 2.2%) 0 2px, transparent 2px 16px),
-      linear-gradient(180deg, #191627, #100e1a 60%, #0a0810);
-    transition: opacity 0.4s ease;
-  }
-  #boot.is-hiding { opacity: 0; pointer-events: none; }
-  #boot video {
-    display: block; width: min(120vw, 960px); aspect-ratio: 4 / 3;
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent),
-                        linear-gradient(180deg, transparent, #000 12%, #000 88%, transparent);
-    -webkit-mask-composite: source-in;
-    mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent),
-                linear-gradient(180deg, transparent, #000 12%, #000 88%, transparent);
-    mask-composite: intersect;
-  }
-  @media (prefers-reduced-motion: reduce) { #boot video { display: none; } }
-</style>
-
-<!-- in <body>, before #root -->
-<div id="boot" aria-hidden="true">
-  <video muted playsinline autoplay preload="auto" disablepictureinpicture>
-    <source src="/art/boot.mp4" type="video/mp4" />
-    <source src="/art/boot.webm" type="video/webm" />
-  </video>
-</div>
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#14121f" />
+    <meta
+      name="description"
+      content="TopCards es un juego de cartas cooperativo online para jugar con amigos. Ordenad las cartas de menor a mayor sin enseñar vuestras cartas."
+    />
+    <meta name="robots" content="index,follow" />
+    <link rel="canonical" href="https://topcards.es/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:site_name" content="TopCards" />
+    <meta property="og:title" content="TopCards — Juego de cartas cooperativo online" />
+    <meta property="og:description" content="Ordenad las cartas de menor a mayor sin enseñar vuestras cartas. Crea una sala y juega con tus amigos." />
+    <meta property="og:url" content="https://topcards.es/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="TopCards — Juego de cartas cooperativo online" />
+    <meta name="twitter:description" content="Un juego de cartas cooperativo online para jugar con amigos." />
+    <title>TopCards — Juego de cartas cooperativo online</title>
+    <link rel="icon" href="/art/cards/AS.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "TopCards",
+      "url": "https://topcards.es/",
+      "description": "Juego de cartas cooperativo online para jugar con amigos."
+    }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
