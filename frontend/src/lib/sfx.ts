@@ -104,11 +104,56 @@ function stopTick(fade: boolean): void {
   }
 }
 
+/**
+ * Fanfarria de victoria. También es un fichero real; el arpegio sintetizado
+ * se queda como red de seguridad por si todavía no ha cargado.
+ *
+ * El fichero viene normalizado a ~-2 dBFS de pico (igual que el tic-tac), así
+ * que se atenúa un poco aquí para que no tape al resto de efectos. Si suena
+ * fuerte o flojo de más, este número es el que hay que tocar.
+ */
+const WIN_URL = '/art/win.mp3'
+const WIN_GAIN = 0.9
+let winBuffer: AudioBuffer | null = null
+let winLoading = false
+
+function loadWin(ctx: AudioContext): void {
+  if (winBuffer || winLoading) return
+  winLoading = true
+  fetch(WIN_URL)
+    .then((response) => {
+      if (!response.ok) throw new Error(`win ${response.status}`)
+      return response.arrayBuffer()
+    })
+    .then((data) => ctx.decodeAudioData(data))
+    .then((buffer) => {
+      winBuffer = buffer
+    })
+    .catch(() => {
+      winLoading = false // se reintentará la próxima vez
+    })
+}
+
+/** Suena el fichero de victoria. Devuelve false si todavía no está listo. */
+function playWinSample(): boolean {
+  if (!context || !master || !winBuffer || context.state !== 'running') return false
+  const source = context.createBufferSource()
+  const gain = context.createGain()
+  source.buffer = winBuffer
+  gain.gain.value = WIN_GAIN
+  source.connect(gain).connect(master)
+  source.start()
+  return true
+}
+
 export const sfx = {
   /** Se llama en el primer clic del usuario para desbloquear el audio. */
   unlock(): void {
     const ctx = ensureContext()
-    if (ctx) loadTick(ctx)
+    if (ctx) {
+      loadTick(ctx)
+      loadWin(ctx)
+    }
   },
 
   /** Empieza el tic-tac (una sola vez, desde el principio). Respeta volumen y silencio. */
@@ -177,9 +222,12 @@ export const sfx = {
         blip(ctx, master, at + 0.09, 294, 0.12, 'square', 0.16)
         break
       case 'win':
-        [523, 659, 784, 1047].forEach((freq, i) =>
-          blip(ctx, master!, at + i * 0.11, freq, 0.16, 'square', 0.24),
-        )
+        // Manda el fichero; si no ha cargado, suena el arpegio de siempre.
+        if (!playWinSample()) {
+          [523, 659, 784, 1047].forEach((freq, i) =>
+            blip(ctx, master!, at + i * 0.11, freq, 0.16, 'square', 0.24),
+          )
+        }
         break
       case 'lose':
         [392, 330, 262].forEach((freq, i) =>

@@ -14,6 +14,7 @@ import { useSession } from '../state/useSession'
 import type { Seat } from '../types'
 import '../styles/room.css'
 import { LowTimeAlert } from '../room/LowTimeAlert'
+import { OutcomeBorder } from '../room/OutcomeBorder'
 
 export function Room({ seat }: { seat: Seat }) {
   const { room, receivedAt, status, fatal, connect, disconnect, leave, send, toasts } = useRoom()
@@ -188,6 +189,7 @@ export function Room({ seat }: { seat: Seat }) {
         </div>
       )}
         <LowTimeAlert room={room} receivedAt={receivedAt} />
+      <OutcomeBorder room={room} />
       <div className="toasts">
         <AnimatePresence initial={false}>
           {toasts.map((toast) => (

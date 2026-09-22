@@ -1,0 +1,43 @@
+/* Borde de color al cerrar la ronda. Entra con un fundido y se queda fijo:
+   sin latido, para no confundirlo con el aviso de tiempo (low-time.css). */
+.outcome {
+  position: fixed;
+  inset: 0;
+  z-index: 41;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+
+.outcome.is-on {
+  opacity: 1;
+}
+
+/* Con «reducir movimiento» aparece y desaparece sin transición. */
+.outcome.is-still {
+  transition: none;
+}
+
+.outcome__edge {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 clamp(36px, 10vw, 110px) clamp(6px, 2vw, 22px) var(--outcome-glow);
+}
+
+/* Derrota: el mismo rojo de las figuras, fijo. */
+.outcome--lose {
+  --outcome-glow: rgb(224 78 57 / 85%);
+}
+
+/* Victoria: el oro de la paleta, con un segundo halo interior más cálido
+   para que se lea como premio y no como otra alarma. */
+.outcome--win {
+  --outcome-glow: rgb(245 185 59 / 85%);
+}
+
+.outcome--win .outcome__edge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 clamp(14px, 4vw, 44px) clamp(2px, 0.6vw, 8px) rgb(255 233 168 / 55%);
+}
