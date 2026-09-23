@@ -50,16 +50,16 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: clamp(190px, 30vw, 420px);
-  height: clamp(190px, 30vw, 420px);
+  width: clamp(170px, 27vw, 380px);
+  height: clamp(170px, 27vw, 380px);
   border-radius: 50%;
   /* El degradado se apaga solo: sale más barato que un filtro de desenfoque. */
   background: radial-gradient(
     circle,
-    rgb(255 240 190 / 92%) 0%,
-    rgb(245 185 59 / 62%) 26%,
-    rgb(245 185 59 / 18%) 48%,
-    rgb(245 185 59 / 0%) 70%
+    rgb(255 240 190 / 58%) 0%,
+    rgb(245 185 59 / 38%) 26%,
+    rgb(245 185 59 / 12%) 50%,
+    rgb(245 185 59 / 0%) 72%
   );
   /* Sobre el tapete oscuro se comporta como una luz, no como una mancha. */
   mix-blend-mode: screen;
