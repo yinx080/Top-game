@@ -9,18 +9,23 @@ const MAX_POINTS = 24
 
 type Send = (message: ClientMessage) => void
 type Point = { x: number; y: number }
+type BrushStroke = Pick<DrawingSegment, 'color' | 'width' | 'points'>
 
 export function TableDrawing({ room, send, connected }: { room: RoomView; send: Send; connected: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sizeRef = useRef({ width: 0, height: 0 })
   const pendingRef = useRef<Point[]>([])
+  const optimisticRef = useRef<BrushStroke[]>([])
+  const confirmedIdRef = useRef(Math.max(0, ...room.drawing.map((stroke) => stroke.id)))
+  const previousDrawingCountRef = useRef(room.drawing.length)
+  const redrawRef = useRef<() => void>(() => undefined)
   const lastSentAtRef = useRef(0)
   const [active, setActive] = useState(false)
   const [color, setColor] = useState(room.you?.color ?? 0)
   const [width, setWidth] = useState<1 | 2 | 3>(2)
   const full = room.drawing.length >= room.limits.drawingSegments
 
-  const drawPath = (stroke: Pick<DrawingSegment, 'color' | 'width' | 'points'>) => {
+  const drawPath = (stroke: BrushStroke) => {
     const canvas = canvasRef.current
     const context = canvas?.getContext('2d')
     if (!canvas || !context || stroke.points.length < 2) return
@@ -51,7 +56,10 @@ export function TableDrawing({ room, send, connected }: { room: RoomView; send: 
     if (!canvas || !context) return
     context.clearRect(0, 0, sizeRef.current.width, sizeRef.current.height)
     room.drawing.forEach(drawPath)
+    optimisticRef.current.forEach(drawPath)
+    if (pendingRef.current.length > 1) drawPath({ color, width, points: pendingRef.current })
   }
+  redrawRef.current = redraw
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -63,13 +71,25 @@ export function TableDrawing({ room, send, connected }: { room: RoomView; send: 
       canvas.width = Math.max(1, Math.round(rect.width * dpr))
       canvas.height = Math.max(1, Math.round(rect.height * dpr))
       canvas.getContext('2d')?.setTransform(dpr, 0, 0, dpr, 0, 0)
-      redraw()
+      redrawRef.current()
     })
     observer.observe(canvas)
     return () => observer.disconnect()
-  })
+  }, [])
 
-  useEffect(redraw, [room.drawing])
+  useEffect(() => {
+    if (previousDrawingCountRef.current > 0 && room.drawing.length === 0) {
+      optimisticRef.current = []
+    } else {
+      const confirmations = room.drawing.filter(
+        (stroke) => stroke.playerId === room.you?.id && stroke.id > confirmedIdRef.current,
+      ).length
+      optimisticRef.current.splice(0, confirmations)
+    }
+    confirmedIdRef.current = Math.max(confirmedIdRef.current, ...room.drawing.map((stroke) => stroke.id))
+    previousDrawingCountRef.current = room.drawing.length
+    redraw()
+  }, [room.drawing])
 
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 701px) and (hover: hover) and (pointer: fine)')
@@ -99,19 +119,9 @@ export function TableDrawing({ room, send, connected }: { room: RoomView; send: 
     }
   }
 
-  const isProtected = (clientX: number, clientY: number) =>
-    document.elementsFromPoint(clientX, clientY).some((element) =>
-      element.closest('.seats, .tablecards, .phase'),
-    )
-
   const collect = (event: ReactPointerEvent<HTMLDivElement>) => {
     const samples = event.nativeEvent.getCoalescedEvents?.() ?? [event.nativeEvent]
     for (const sample of samples.length ? samples : [event.nativeEvent]) {
-      if (isProtected(sample.clientX, sample.clientY)) {
-        flush()
-        pendingRef.current = []
-        continue
-      }
       const point = pointFrom(sample.clientX, sample.clientY, event.currentTarget)
       const previous = pendingRef.current.at(-1)
       if (!previous) {
@@ -129,6 +139,7 @@ export function TableDrawing({ room, send, connected }: { room: RoomView; send: 
     const points = pending.length <= MAX_POINTS
       ? pending
       : Array.from({ length: MAX_POINTS }, (_, index) => pending[Math.round(index * (pending.length - 1) / (MAX_POINTS - 1))])
+    optimisticRef.current.push({ color, width, points })
     send({ action: 'draw', points, color, width })
     pendingRef.current = [pending.at(-1)!]
     lastSentAtRef.current = performance.now()
@@ -158,7 +169,6 @@ export function TableDrawing({ room, send, connected }: { room: RoomView; send: 
         aria-hidden={!active}
         onPointerDown={(event) => {
           if (!active || event.button !== 0) return
-          if (isProtected(event.clientX, event.clientY)) return
           pendingRef.current = [pointFrom(event.clientX, event.clientY, event.currentTarget)]
           lastSentAtRef.current = performance.now()
           event.currentTarget.setPointerCapture(event.pointerId)
