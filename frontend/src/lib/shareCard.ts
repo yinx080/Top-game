@@ -5,24 +5,32 @@
  * captura del tablero: así la imagen sale igual en cualquier móvil, no arrastra
  * el chat ni los botones, y no hace falta ninguna librería.
  *
+ * La fila de cartas imita a TableCards: mismo orden que la mesa (izquierda es
+ * la posición más baja, o sea la carta más baja cuando el top es correcto),
+ * la palabra y el nombre encima, el valor debajo y el fallo marcado en rojo.
+ *
  * Para cambiar QUÉ sale en la tarjeta, mira SHARE_CARD justo debajo.
  */
 
-import type { RoomView } from '../types'
+import type { RoomView, TableEntry } from '../types'
 
-/** Qué se dibuja. Pon algo a true y aparece; el resto de la tarjeta se recoloca sola. */
+/** Qué se dibuja. La tarjeta se recoloca sola con cualquier combinación. */
 export const SHARE_CARD = {
-  /** Nombres y valores en el orden en que se colocaron las cartas. */
-  players: true,
-  /** La palabra que escribió cada jugador. Necesita `players`. */
+  /** La fila de cartas tal y como queda la mesa al acabar la ronda. */
+  cards: true,
+  /** La palabra que escribió cada jugador, encima de su carta. */
   answers: true,
   /** Victorias y racha de la sala. */
-  stats: true,
+  stats: false,
 }
 
 const SIZE = 1080
 const MARGIN = 56
 const CONTENT_WIDTH = SIZE - MARGIN * 2 - 120
+/** Ancho máximo de la fila de cartas. */
+const ROW_WIDTH = SIZE - MARGIN * 2 - 80
+/** Proporción de las cartas, la misma que usa PlayingCard. */
+const CARD_RATIO = 1.42
 
 /** Paleta: los mismos valores que global.css. */
 const COLOR = {
@@ -34,6 +42,20 @@ const COLOR = {
   gold: '#f5b93b',
   red: '#e04e39',
 }
+
+/** Colores de jugador (--p0 … --p9 en global.css). */
+const PLAYER_COLORS = [
+  '#f5b93b',
+  '#e04e39',
+  '#3fb6a8',
+  '#8f7ced',
+  '#58c463',
+  '#ef7fb4',
+  '#4aa3e8',
+  '#ef8a3c',
+  '#bcd94f',
+  '#d59bf6',
+]
 
 const DISPLAY = "'Bungee', 'Arial Black', system-ui, sans-serif"
 const UI = "'Chakra Petch', 'Segoe UI', system-ui, sans-serif"
@@ -55,6 +77,16 @@ async function waitForFonts(): Promise<void> {
   } catch {
     /* si falla, se dibuja con la tipografía de respaldo */
   }
+}
+
+/** Carga la imagen de una carta. Devuelve null si no está: la tarjeta sigue saliendo. */
+function loadCardImage(code: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => resolve(null)
+    image.src = `/art/cards/${code}.png`
+  })
 }
 
 /** Parte un texto en líneas que quepan en `maxWidth`, hasta `maxLines`. */
@@ -94,6 +126,16 @@ function wrap(
   return lines
 }
 
+/** Recorta un texto a una sola línea que quepa en `maxWidth`. */
+function truncate(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text
+  let trimmed = text
+  while (trimmed && ctx.measureText(`${trimmed}…`).width > maxWidth) {
+    trimmed = trimmed.slice(0, -1)
+  }
+  return `${trimmed.trimEnd()}…`
+}
+
 function roundedRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -111,9 +153,28 @@ function roundedRect(
   ctx.rect(x, y, width, height)
 }
 
+/** Alturas del bloque de texto que acompaña a cada carta. */
+function rowMetrics(count: number, withAnswers: boolean) {
+  const tight = count > 5
+  return {
+    gap: tight ? 14 : 24,
+    nameSize: tight ? 20 : 26,
+    answerSize: tight ? 18 : 24,
+    valueSize: tight ? 28 : 36,
+    above: withAnswers ? (tight ? 58 : 74) : tight ? 32 : 40,
+    below: tight ? 46 : 58,
+  }
+}
+
 /** Dibuja la tarjeta y la devuelve como PNG. */
 export async function renderShareCard(room: RoomView): Promise<Blob> {
   await waitForFonts()
+
+  const entries: TableEntry[] = SHARE_CARD.cards ? room.table : []
+  // Las imágenes se piden antes de pintar: dibujar es síncrono.
+  const images = await Promise.all(
+    entries.map((entry) => (entry.card ? loadCardImage(entry.card.code) : Promise.resolve(null))),
+  )
 
   const canvas = document.createElement('canvas')
   canvas.width = SIZE
@@ -145,33 +206,51 @@ export async function renderShareCard(room: RoomView): Promise<Blob> {
 
   // --- Medir antes de pintar, para centrar el bloque ------------------------
   // El contenido vive entre la marca de arriba y el pie: nunca los invade.
-  const SAFE_TOP = 300
-  const SAFE_BOTTOM = SIZE - 150
+  const SAFE_TOP = 280
+  const SAFE_BOTTOM = SIZE - 130
   const available = SAFE_BOTTOM - SAFE_TOP
 
-  ctx.font = `400 58px ${DISPLAY}`
-  const topicLines = wrap(ctx, room.topic?.text ?? 'Sin tema', CONTENT_WIDTH, 3)
+  // Con la mesa delante, el texto cede sitio: manda la fila de cartas.
+  const withCards = entries.length > 0
+  const type = {
+    eyebrow: withCards ? 50 : 58,
+    topicSize: withCards ? 50 : 58,
+    topicLine: withCards ? 62 : 74,
+    afterTopic: withCards ? 30 : 44,
+    verdictSize: withCards ? 60 : 72,
+    verdictLine: withCards ? 70 : 86,
+  }
 
-  const rows = SHARE_CARD.players ? room.table : []
+  const topicMaxLines = withCards ? 2 : 3
+  ctx.font = `400 ${type.topicSize}px ${DISPLAY}`
+  const topicLines = wrap(ctx, room.topic?.text ?? 'Sin tema', CONTENT_WIDTH, topicMaxLines)
+
   const statsHeight = SHARE_CARD.stats ? 72 : 0
-  const fixedHeight =
-    58 + // eyebrow del tema
-    topicLines.length * 74 +
-    54 + // hueco
-    86 + // veredicto
-    (rows.length ? 36 : 0) +
+  const textHeight =
+    type.eyebrow +
+    topicLines.length * type.topicLine +
+    type.afterTopic +
+    type.verdictLine +
     statsHeight
 
-  // Con muchos jugadores las filas se aprietan antes que salirse de la tarjeta,
-  // y si aun así no caben, las respuestas se quedan fuera.
-  let rowHeight = SHARE_CARD.answers ? 78 : 58
-  if (rows.length) {
-    const forRows = available - fixedHeight
-    rowHeight = Math.max(34, Math.min(rowHeight, Math.floor(forRows / rows.length)))
-  }
-  const showAnswers = SHARE_CARD.answers && rowHeight >= 68
+  const metrics = rowMetrics(entries.length, SHARE_CARD.answers)
+  let cardWidth = 0
+  let cardHeight = 0
+  let showAnswers = false
 
-  const blockHeight = fixedHeight + rows.length * rowHeight
+  if (entries.length) {
+    const byWidth = (ROW_WIDTH - metrics.gap * (entries.length - 1)) / entries.length
+    const spare = available - textHeight - metrics.above - metrics.below - 28
+    const byHeight = spare / CARD_RATIO
+    // El tope evita que con dos jugadores las cartas salgan descomunales.
+    cardWidth = Math.max(56, Math.min(byWidth, byHeight, 230))
+    cardHeight = cardWidth * CARD_RATIO
+    // En cartas muy pequeñas la palabra no se lee: mejor no ponerla.
+    showAnswers = SHARE_CARD.answers && cardWidth >= 84
+  }
+
+  const rowHeight = entries.length ? metrics.above + cardHeight + metrics.below + 28 : 0
+  const blockHeight = textHeight + rowHeight
   let y = SAFE_TOP + Math.max(0, (available - blockHeight) / 2)
 
   // --- Marca ----------------------------------------------------------------
@@ -187,49 +266,90 @@ export async function renderShareCard(room: RoomView): Promise<Blob> {
   ctx.fillStyle = COLOR.paperDim
   ctx.font = `600 30px ${UI}`
   ctx.fillText('EL TEMA', centre, y)
-  y += 58
+  y += type.eyebrow
 
   ctx.fillStyle = COLOR.paper
-  ctx.font = `400 58px ${DISPLAY}`
+  ctx.font = `400 ${type.topicSize}px ${DISPLAY}`
   for (const line of topicLines) {
     ctx.fillText(line, centre, y)
-    y += 74
+    y += type.topicLine
   }
-  y += 54
+  y += type.afterTopic
 
   // --- Veredicto ------------------------------------------------------------
   ctx.fillStyle = accent
-  ctx.font = `400 72px ${DISPLAY}`
+  ctx.font = `400 ${type.verdictSize}px ${DISPLAY}`
   ctx.fillText(won ? '¡TOP PERFECTO!' : 'SE ROMPIÓ EL ORDEN', centre, y)
-  y += 86
+  y += type.verdictLine
 
-  // --- Jugadores (opcional) -------------------------------------------------
-  if (rows.length) {
-    y += 36
-    ctx.font = `600 34px ${UI}`
-    for (const entry of rows) {
+  // --- La mesa --------------------------------------------------------------
+  if (entries.length) {
+    y += 28
+    const totalWidth = entries.length * cardWidth + metrics.gap * (entries.length - 1)
+    let x = (SIZE - totalWidth) / 2
+    const cardTop = y + metrics.above
+
+    entries.forEach((entry, index) => {
       const failed = room.failedPlayerIds.includes(entry.playerId)
-      const value = entry.card?.code === 'joker' ? '🃏' : String(entry.card?.value ?? '?')
+      const centreX = x + cardWidth / 2
 
-      ctx.textAlign = 'left'
-      ctx.fillStyle = failed ? COLOR.red : COLOR.paper
-      ctx.fillText(entry.playerName, MARGIN + 110, y)
-
-      ctx.textAlign = 'right'
-      ctx.fillStyle = failed ? COLOR.red : COLOR.gold
-      ctx.fillText(value, SIZE - MARGIN - 110, y)
-
+      // Palabra y nombre encima, como en el tablero.
       if (showAnswers && entry.answer) {
-        ctx.textAlign = 'left'
-        ctx.fillStyle = COLOR.paperDim
-        ctx.font = `400 26px ${UI}`
-        ctx.fillText(entry.answer, MARGIN + 110, y + 32)
-        ctx.font = `600 34px ${UI}`
+        ctx.font = `600 ${metrics.answerSize}px ${UI}`
+        ctx.fillStyle = COLOR.paper
+        ctx.fillText(truncate(ctx, entry.answer, cardWidth + metrics.gap - 8), centreX, cardTop - metrics.nameSize - 14)
+      }
+      ctx.font = `600 ${metrics.nameSize}px ${UI}`
+      ctx.fillStyle = failed ? COLOR.red : PLAYER_COLORS[entry.color % PLAYER_COLORS.length]
+      ctx.fillText(truncate(ctx, entry.playerName, cardWidth + metrics.gap - 8), centreX, cardTop - 12)
+
+      // La carta.
+      const image = images[index]
+      ctx.save()
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'
+      ctx.shadowBlur = 18
+      ctx.shadowOffsetY = 8
+      if (image) {
+        ctx.drawImage(image, x, cardTop, cardWidth, cardHeight)
+      } else {
+        // Sin imagen, una carta de respaldo con el valor dentro.
+        roundedRect(ctx, x, cardTop, cardWidth, cardHeight, cardWidth * 0.09)
+        ctx.fillStyle = COLOR.paper
+        ctx.fill()
+      }
+      ctx.restore()
+
+      if (!image && entry.card) {
+        ctx.fillStyle = COLOR.night
+        ctx.font = `400 ${Math.round(cardWidth * 0.34)}px ${DISPLAY}`
+        ctx.fillText(
+          entry.card.code === 'joker' ? '🃏' : String(entry.card.value),
+          centreX,
+          cardTop + cardHeight / 2 + cardWidth * 0.12,
+        )
       }
 
-      y += rowHeight
-    }
-    ctx.textAlign = 'center'
+      // El fallo se marca con el mismo rojo que en la mesa.
+      if (failed) {
+        roundedRect(ctx, x - 3, cardTop - 3, cardWidth + 6, cardHeight + 6, cardWidth * 0.1)
+        ctx.strokeStyle = COLOR.red
+        ctx.lineWidth = 6
+        ctx.stroke()
+      }
+
+      // El valor, debajo.
+      ctx.font = `400 ${metrics.valueSize}px ${DISPLAY}`
+      ctx.fillStyle = failed ? COLOR.red : COLOR.gold
+      ctx.fillText(
+        entry.card?.code === 'joker' ? '🃏' : String(entry.card?.value ?? '?'),
+        centreX,
+        cardTop + cardHeight + metrics.valueSize + 10,
+      )
+
+      x += cardWidth + metrics.gap
+    })
+
+    y = cardTop + cardHeight + metrics.below
   }
 
   // --- Estadísticas (opcional) ---------------------------------------------
