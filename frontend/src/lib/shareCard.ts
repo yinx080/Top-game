@@ -13,11 +13,11 @@ import type { RoomView } from '../types'
 /** Qué se dibuja. Pon algo a true y aparece; el resto de la tarjeta se recoloca sola. */
 export const SHARE_CARD = {
   /** Nombres y valores en el orden en que se colocaron las cartas. */
-  players: false,
+  players: true,
   /** La palabra que escribió cada jugador. Necesita `players`. */
-  answers: false,
+  answers: true,
   /** Victorias y racha de la sala. */
-  stats: false,
+  stats: true,
 }
 
 const SIZE = 1080
