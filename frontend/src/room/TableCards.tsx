@@ -51,7 +51,14 @@ export function TableCards({
   }
 
   return (
-    <div className="tablecards" style={{ ['--card-w' as string]: `min(${width}px, var(--card-max, ${width}px))` }}>
+    <div
+      className="tablecards"
+      style={{
+        ['--card-w' as string]: `min(${width}px, var(--card-max, ${width}px))`,
+        // En móvil las cartas van en columna y encogen según cuántas haya.
+        ['--n' as string]: table.length + (canPlace ? 1 : 0),
+      }}
+    >
       {table.map((entry, index) => (
         <Fragment key={entry.playerId}>
           <Slot index={index} active={canPlace} onPlace={onPlace} />
@@ -150,6 +157,7 @@ function Slot({
       }}
     >
       <span className="slot__mark">+</span>
+      <span className="slot__label">colocar aquí</span>
     </button>
   )
 }
