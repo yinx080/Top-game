@@ -153,18 +153,44 @@ function roundedRect(
   ctx.rect(x, y, width, height)
 }
 
-/** Alturas del bloque de texto que acompaña a cada carta. */
+/**
+ * Medidas de la etiqueta que va encima de cada carta.
+ *
+ * Es la misma caja que `.placed__answer` en room.css: fondo casi negro, borde
+ * del color del jugador y esquinas redondeadas.
+ */
 function rowMetrics(count: number, withAnswers: boolean) {
   const tight = count > 5
+  const nameSize = tight ? 20 : 26
+  const answerSize = tight ? 18 : 24
+  const padY = tight ? 7 : 10
+  const padX = tight ? 9 : 13
+  const lineGap = 2
+  const nameLine = Math.round(nameSize * 1.2)
+  const answerLine = Math.round(answerSize * 1.2)
+  const boxHeight = padY * 2 + nameLine + (withAnswers ? lineGap + answerLine : 0)
+  /** Aire entre la etiqueta y la carta. */
+  const gapBox = tight ? 14 : 20
+
   return {
     gap: tight ? 14 : 24,
-    nameSize: tight ? 20 : 26,
-    answerSize: tight ? 18 : 24,
+    nameSize,
+    answerSize,
+    padX,
+    padY,
+    lineGap,
+    nameLine,
+    answerLine,
+    boxHeight,
+    gapBox,
     valueSize: tight ? 28 : 36,
-    above: withAnswers ? (tight ? 58 : 74) : tight ? 32 : 40,
+    above: boxHeight + gapBox,
     below: tight ? 46 : 58,
   }
 }
+
+/** Fondo de la etiqueta, igual que en el tablero. */
+const LABEL_BACKDROP = 'rgba(4, 18, 11, 0.82)'
 
 /** Dibuja la tarjeta y la devuelve como PNG. */
 export async function renderShareCard(room: RoomView): Promise<Blob> {
@@ -293,23 +319,52 @@ export async function renderShareCard(room: RoomView): Promise<Blob> {
       const failed = room.failedPlayerIds.includes(entry.playerId)
       const centreX = x + cardWidth / 2
 
-      // Encima de la carta: primero de quién es, y debajo lo que escribió.
-      const textWidth = cardWidth + metrics.gap - 8
+      // Etiqueta encima de la carta: nombre arriba, palabra debajo, sobre la
+      // misma caja oscura con borde de color que usa la mesa.
+      const playerColor = failed ? COLOR.red : PLAYER_COLORS[entry.color % PLAYER_COLORS.length]
       const withAnswer = showAnswers && Boolean(entry.answer)
+      // Sobresale un poco de la carta, como en la mesa, pero dejando hueco
+      // entre etiquetas vecinas.
+      const boxWidth = Math.min(cardWidth + 26, cardWidth + metrics.gap - 10)
+      const boxHeight =
+        metrics.padY * 2 +
+        metrics.nameLine +
+        (withAnswer ? metrics.lineGap + metrics.answerLine : 0)
+      const boxLeft = centreX - boxWidth / 2
+      const boxTop = cardTop - metrics.gapBox - boxHeight
+      const boxRadius = Math.max(8, Math.round(cardWidth * 0.068))
+      const textWidth = boxWidth - metrics.padX * 2
 
+      ctx.save()
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.38)'
+      ctx.shadowBlur = 16
+      ctx.shadowOffsetY = 6
+      roundedRect(ctx, boxLeft, boxTop, boxWidth, boxHeight, boxRadius)
+      ctx.fillStyle = LABEL_BACKDROP
+      ctx.fill()
+      ctx.restore()
+
+      roundedRect(ctx, boxLeft, boxTop, boxWidth, boxHeight, boxRadius)
+      ctx.strokeStyle = playerColor
+      ctx.lineWidth = Math.max(2, Math.round(cardWidth * 0.015))
+      ctx.stroke()
+
+      // Con la línea de arriba como referencia cuadra mejor dentro de la caja.
+      ctx.textBaseline = 'top'
       ctx.font = `600 ${metrics.nameSize}px ${UI}`
-      ctx.fillStyle = failed ? COLOR.red : PLAYER_COLORS[entry.color % PLAYER_COLORS.length]
-      ctx.fillText(
-        truncate(ctx, entry.playerName, textWidth),
-        centreX,
-        withAnswer ? cardTop - metrics.answerSize - 14 : cardTop - 12,
-      )
+      ctx.fillStyle = playerColor
+      ctx.fillText(truncate(ctx, entry.playerName, textWidth), centreX, boxTop + metrics.padY)
 
       if (withAnswer) {
         ctx.font = `600 ${metrics.answerSize}px ${UI}`
         ctx.fillStyle = COLOR.paper
-        ctx.fillText(truncate(ctx, entry.answer, textWidth), centreX, cardTop - 12)
+        ctx.fillText(
+          truncate(ctx, entry.answer, textWidth),
+          centreX,
+          boxTop + metrics.padY + metrics.nameLine + metrics.lineGap,
+        )
       }
+      ctx.textBaseline = 'alphabetic'
 
       // La carta.
       const image = images[index]
