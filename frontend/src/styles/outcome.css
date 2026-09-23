@@ -29,15 +29,71 @@
   --outcome-glow: rgb(224 78 57 / 85%);
 }
 
-/* Victoria: el oro de la paleta, con un segundo halo interior más cálido
-   para que se lea como premio y no como otra alarma. */
+/* Victoria: el oro de la paleta. Más flojo que el rojo a propósito, porque
+   aquí la intensidad la ponen los dos puntos que dan la vuelta. */
 .outcome--win {
-  --outcome-glow: rgb(245 185 59 / 85%);
+  --outcome-glow: rgb(245 185 59 / 52%);
 }
 
 .outcome--win .outcome__edge::after {
   content: '';
   position: absolute;
   inset: 0;
-  box-shadow: inset 0 0 clamp(14px, 4vw, 44px) clamp(2px, 0.6vw, 8px) rgb(255 233 168 / 55%);
+  box-shadow: inset 0 0 clamp(14px, 4vw, 44px) clamp(2px, 0.6vw, 8px) rgb(255 233 168 / 32%);
+}
+
+/* ---------------------------------------------------------------------------
+   Victoria: dos puntos más intensos dando vueltas al borde, como el hotspot
+   de una tira de led. El brillo de fondo no se mueve; sólo estos dos.
+   --------------------------------------------------------------------------- */
+.outcome__spot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: clamp(170px, 27vw, 380px);
+  height: clamp(170px, 27vw, 380px);
+  border-radius: 50%;
+  /* El degradado se apaga solo: sale más barato que un filtro de desenfoque. */
+  background: radial-gradient(
+    circle,
+    rgb(255 240 190 / 58%) 0%,
+    rgb(245 185 59 / 38%) 26%,
+    rgb(245 185 59 / 12%) 50%,
+    rgb(245 185 59 / 0%) 72%
+  );
+  /* Sobre el tapete oscuro se comporta como una luz, no como una mancha. */
+  mix-blend-mode: screen;
+  transform: translate(-50%, -50%);
+  animation: outcome-lap 7s linear infinite;
+}
+
+/* El segundo va media vuelta por detrás: siempre en el lado opuesto. */
+.outcome__spot--b {
+  animation-delay: -3.5s;
+}
+
+/* Con «reducir movimiento» no hay nada dando vueltas: queda el borde fijo. */
+.outcome.is-still .outcome__spot {
+  display: none;
+}
+
+/* Una vuelta completa al borde: esquina a esquina, en el sentido del reloj.
+   Los porcentajes de translate son del propio punto, así que la mezcla con
+   vw/vh lo mantiene centrado sobre el borde en cualquier pantalla. */
+@keyframes outcome-lap {
+  0% {
+    transform: translate(-50%, -50%);
+  }
+  25% {
+    transform: translate(calc(100vw - 50%), -50%);
+  }
+  50% {
+    transform: translate(calc(100vw - 50%), calc(100vh - 50%));
+  }
+  75% {
+    transform: translate(-50%, calc(100vh - 50%));
+  }
+  100% {
+    transform: translate(-50%, -50%);
+  }
 }

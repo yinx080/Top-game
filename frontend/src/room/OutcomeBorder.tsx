@@ -36,6 +36,13 @@ export function OutcomeBorder({ room }: { room: RoomView }) {
   return (
     <div className={classes} aria-hidden="true">
       <div className="outcome__edge" />
+      {/* Los dos puntos que recorren el borde sólo tienen sentido al ganar. */}
+      {shown === 'win' && (
+        <>
+          <span className="outcome__spot" />
+          <span className="outcome__spot outcome__spot--b" />
+        </>
+      )}
     </div>
   )
 }
