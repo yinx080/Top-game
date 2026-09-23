@@ -1217,6 +1217,80 @@
 .streak-stat.is-lit { background: rgb(108 31 8 / 38%); box-shadow: 0 0 14px rgb(255 105 20 / 25%); }
 .streak-fire--indicator { position: absolute; inset: -22px -10px 0; width: calc(100% + 20px); height: calc(100% + 22px); }
 .streak-stat__label { position: relative; z-index: 1; font-weight: 700; text-shadow: 0 1px 3px #000; }
+
+/* Resplandor naranja al pie de la pantalla mientras hay racha. Crece y brilla
+   más con cada victoria (--streak va de 2 a 10) y titila con dos capas a ritmos
+   distintos, para que no se note un bucle regular. Queda por debajo del borde
+   de resultado (.outcome, z 41) y no captura toques. */
+.streak-glow {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  height: calc(20vh + var(--streak, 0) * 1.6vh);
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+
+.streak-glow.is-on {
+  opacity: calc(0.7 + var(--streak, 0) * 0.03);
+}
+
+.streak-glow::before,
+.streak-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 100%;
+}
+
+/* Capa ancha: el calor de fondo, respira despacio. */
+.streak-glow::before {
+  background: radial-gradient(120% 100% at 50% 100%, rgb(255 104 18 / 88%) 0%, rgb(255 72 10 / 46%) 38%, rgb(255 72 10 / 0%) 74%);
+  animation: streak-glow-breathe 2.7s ease-in-out infinite;
+}
+
+/* Capa de lenguas: dos focos más amarillos que se mecen y chisporrotean. */
+.streak-glow::after {
+  background:
+    radial-gradient(34% 85% at 28% 100%, rgb(255 176 52 / 70%), rgb(255 176 52 / 0%) 70%),
+    radial-gradient(30% 75% at 71% 100%, rgb(255 146 34 / 65%), rgb(255 146 34 / 0%) 70%);
+  animation: streak-glow-flicker 1.9s ease-in-out infinite;
+}
+
+.streak-glow.is-still,
+.streak-glow.is-still::before,
+.streak-glow.is-still::after {
+  transition: none;
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streak-glow::before,
+  .streak-glow::after {
+    animation: none;
+  }
+}
+
+@keyframes streak-glow-breathe {
+  0%, 100% { opacity: 0.85; transform: scaleY(1); }
+  22% { opacity: 0.66; transform: scaleY(0.93); }
+  41% { opacity: 1; transform: scaleY(1.07); }
+  63% { opacity: 0.76; transform: scaleY(0.97); }
+  82% { opacity: 0.95; transform: scaleY(1.04); }
+}
+
+@keyframes streak-glow-flicker {
+  0%, 100% { opacity: 0.6; transform: translateX(0) scale(1, 1); }
+  17% { opacity: 1; transform: translateX(-1.5%) scale(1.03, 1.12); }
+  34% { opacity: 0.7; transform: translateX(1%) scale(0.98, 0.94); }
+  52% { opacity: 0.95; transform: translateX(2%) scale(1.02, 1.08); }
+  71% { opacity: 0.55; transform: translateX(-1%) scale(1, 0.96); }
+  86% { opacity: 0.9; transform: translateX(0.5%) scale(1.03, 1.1); }
+}
 .royal-badge { color: var(--gold); font-family: var(--font-display); font-size: 10px; letter-spacing: 0.06em; text-shadow: 0 0 8px rgb(245 185 59 / 45%); }
 .hall-of-shame { position: relative; }
 .hall-of-shame summary { cursor: pointer; color: var(--gold); }

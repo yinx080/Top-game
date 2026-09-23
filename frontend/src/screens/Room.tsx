@@ -215,6 +215,13 @@ export function Room({ seat }: { seat: Seat }) {
       )}
         <LowTimeAlert room={room} receivedAt={receivedAt} />
       <OutcomeBorder room={room} />
+      {/* Resplandor de brasas al pie de la pantalla mientras dura la racha. Se
+          queda montado para que entre y salga con un fundido. */}
+      <div
+        className={`streak-glow${streakFire ? ' is-on' : ''}${reducedMotion ? ' is-still' : ''}`}
+        style={{ ['--streak' as string]: Math.min(streakFire, 10) }}
+        aria-hidden="true"
+      />
       <div className="toasts">
         <AnimatePresence initial={false}>
           {toasts.map((toast) => (
