@@ -293,15 +293,23 @@ export async function renderShareCard(room: RoomView): Promise<Blob> {
       const failed = room.failedPlayerIds.includes(entry.playerId)
       const centreX = x + cardWidth / 2
 
-      // Palabra y nombre encima, como en el tablero.
-      if (showAnswers && entry.answer) {
-        ctx.font = `600 ${metrics.answerSize}px ${UI}`
-        ctx.fillStyle = COLOR.paper
-        ctx.fillText(truncate(ctx, entry.answer, cardWidth + metrics.gap - 8), centreX, cardTop - metrics.nameSize - 14)
-      }
+      // Encima de la carta: primero de quién es, y debajo lo que escribió.
+      const textWidth = cardWidth + metrics.gap - 8
+      const withAnswer = showAnswers && Boolean(entry.answer)
+
       ctx.font = `600 ${metrics.nameSize}px ${UI}`
       ctx.fillStyle = failed ? COLOR.red : PLAYER_COLORS[entry.color % PLAYER_COLORS.length]
-      ctx.fillText(truncate(ctx, entry.playerName, cardWidth + metrics.gap - 8), centreX, cardTop - 12)
+      ctx.fillText(
+        truncate(ctx, entry.playerName, textWidth),
+        centreX,
+        withAnswer ? cardTop - metrics.answerSize - 14 : cardTop - 12,
+      )
+
+      if (withAnswer) {
+        ctx.font = `600 ${metrics.answerSize}px ${UI}`
+        ctx.fillStyle = COLOR.paper
+        ctx.fillText(truncate(ctx, entry.answer, textWidth), centreX, cardTop - 12)
+      }
 
       // La carta.
       const image = images[index]
