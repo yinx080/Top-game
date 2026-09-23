@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '../components/ui'
 import { remainingSeconds } from '../lib/clock'
 import type { ClientMessage, RoomView } from '../types'
+import { ShareResult } from './ShareResult'
 
 type Send = (message: ClientMessage) => void
 
@@ -195,6 +196,8 @@ export function ResultPanel({ room, send }: { room: RoomView; send: Send }) {
       </div>
 
       {!won && <p className="hint">Se compara cada valor con el top ordenado, sin contar el joker. Un fallo por jugador y ronda.</p>}
+      {/* Lo ve todo el mundo, no sólo el anfitrión: cualquiera puede querer la imagen. */}
+      <ShareResult room={room} />
       <TimerSettings room={room} send={send} />
       {room.you?.isHost ? (
         <div className="row row--wrap" style={{ justifyContent: 'center' }}>
