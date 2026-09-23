@@ -100,6 +100,21 @@ function handleMessage(message: ServerMessage, set: Setter, get: () => RoomState
       break
     }
 
+    case 'drawing': {
+      const room = get().room
+      set({
+        room: room
+          ? {
+              ...room,
+              drawing: room.drawing.some((segment) => segment.id === message.segment.id)
+                ? room.drawing
+                : [...room.drawing, message.segment],
+            }
+          : null,
+      })
+      break
+    }
+
     case 'pong':
       break
   }
@@ -152,6 +167,9 @@ function reactToEvent(event: ServerEvent, room: RoomView, get: () => RoomState):
       break
     case 'round_aborted':
       get().toast('Ronda cancelada: no quedan jugadores suficientes', 'bad')
+      break
+    case 'drawing_cleared':
+      get().toast('El anfitrión ha limpiado la mesa')
       break
     default:
       break

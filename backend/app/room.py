@@ -5,6 +5,7 @@ accesos con un lock por sala y quien difunde los cambios por WebSocket.
 """
 from __future__ import annotations
 
+import math
 import random
 import time
 from collections.abc import Callable
@@ -18,6 +19,7 @@ from .security import hash_password, new_token, verify_password
 from .topics import sample_topics
 
 PALETTE_SIZE = 10
+MAX_DRAWING_POINTS = 24
 
 
 def mono() -> float:
@@ -98,6 +100,15 @@ class ChatMessage:
     reply_to: dict | None = None
 
 
+@dataclass(slots=True)
+class DrawingSegment:
+    id: int
+    player_id: str
+    color: int
+    width: int
+    points: list[tuple[float, float]]
+
+
 def clean_text(text: str, limit: int) -> str:
     """Colapsa espacios y saltos de línea y descarta caracteres de control."""
     collapsed = " ".join(text.split())
@@ -150,6 +161,10 @@ class Room:
     # El chat vive fuera de la ronda: no se borra al empezar una nueva.
     chat: list[ChatMessage] = field(default_factory=list)
     chat_seq: int = 0
+
+    # El dibujo dura una ronda y se conserva para quien se reconecta.
+    drawing: list[DrawingSegment] = field(default_factory=list)
+    drawing_seq: int = 0
 
     rng: random.Random = field(default_factory=random.Random, repr=False)
 
@@ -357,6 +372,7 @@ class Room:
         self.reveal_index = 0
         self.outcome = None
         self.break_index = None
+        self.drawing = []
 
     # ------------------------------------------------------------ fase de tema
 
@@ -665,6 +681,50 @@ class Room:
         del self.chat[: -settings.chat_history]
         self.touch()
         return message
+
+    # --------------------------------------------------------------- dibujo
+
+    def add_drawing_segment(
+        self, player_id: str, points: object, color: object, width: object,
+    ) -> DrawingSegment:
+        if type(color) is not int or not 0 <= color < PALETTE_SIZE:
+            raise GameError("invalid_drawing", "Ese trazo no es válido.")
+        if type(width) is not int or width not in (1, 2, 3):
+            raise GameError("invalid_drawing", "Ese grosor de pincel no es válido.")
+        if not isinstance(points, list) or not 2 <= len(points) <= MAX_DRAWING_POINTS:
+            raise GameError("invalid_drawing", "Ese trazo no es válido.")
+
+        clean_points: list[tuple[float, float]] = []
+        for point in points:
+            if not isinstance(point, dict):
+                raise GameError("invalid_drawing", "Ese trazo no es válido.")
+            x, y = point.get("x"), point.get("y")
+            if any(type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 1
+                   for value in (x, y)):
+                raise GameError("invalid_drawing", "Ese trazo no es válido.")
+            clean_points.append((round(float(x), 4), round(float(y), 4)))
+        if len(set(clean_points)) == 1:
+            raise GameError("invalid_drawing", "El trazo necesita algo de longitud.")
+        if len(self.drawing) >= settings.max_drawing_segments:
+            raise Conflict("drawing_full", "La mesa está llena de dibujos. Pide al anfitrión que la limpie.")
+
+        player = self.player_or_404(player_id)
+        self.drawing_seq += 1
+        segment = DrawingSegment(
+            id=self.drawing_seq,
+            player_id=player.id,
+            color=color,
+            width=width,
+            points=clean_points,
+        )
+        self.drawing.append(segment)
+        self.touch()
+        return segment
+
+    def clear_drawing(self, player_id: str) -> None:
+        self.ensure_host(player_id)
+        self.drawing = []
+        self.touch()
 
     # ---------------------------------------------------------------- helpers
 

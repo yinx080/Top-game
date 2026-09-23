@@ -116,6 +116,16 @@ async def _dispatch(
             {"kind": "chat", "messageId": message.id, "from": message.player_name}
         )
 
+    elif action == "draw":
+        segment = room.add_drawing_segment(
+            player_id, data.get("points"), data.get("color"), data.get("width")
+        )
+        await runtime.broadcast_drawing(segment)
+
+    elif action == "clear_drawing":
+        room.clear_drawing(player_id)
+        await runtime.broadcast({"kind": "drawing_cleared"})
+
     elif action == "force":
         # El anfitrión cierra la fase sin esperar a los rezagados.
         room.ensure_host(player_id)

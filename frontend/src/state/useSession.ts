@@ -13,12 +13,14 @@ export interface Settings {
 interface SessionState {
   playerName: string
   settings: Settings
+  royalMode: boolean
   /** Asientos por código de sala: permiten volver a entrar tras recargar. */
   seats: Record<string, Seat>
   setPlayerName: (name: string) => void
   patchSettings: (patch: Partial<Settings>) => void
   saveSeat: (seat: Seat) => void
   dropSeat: (code: string) => void
+  unlockRoyalMode: () => void
 }
 
 export const useSession = create<SessionState>()(
@@ -26,6 +28,7 @@ export const useSession = create<SessionState>()(
     (set) => ({
       playerName: '',
       settings: { muted: false, volume: 0.6, reducedMotion: false },
+      royalMode: false,
       seats: {},
 
       setPlayerName: (name) => set({ playerName: name.slice(0, 16) }),
@@ -46,6 +49,8 @@ export const useSession = create<SessionState>()(
           delete seats[code]
           return { seats }
         }),
+
+      unlockRoyalMode: () => set({ royalMode: true }),
     }),
     {
       name: 'topcard.session',

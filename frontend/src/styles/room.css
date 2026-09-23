@@ -91,11 +91,13 @@
     inset 0 0 0 3px rgb(245 185 59 / 20%),
     inset 0 16px 44px rgb(0 0 0 / 42%);
   overflow: hidden;
+  isolation: isolate;
 }
 
 .table__brand {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: grid;
   place-items: center;
   font-family: var(--font-display);
@@ -110,7 +112,164 @@
 .table__play,
 .table__phase {
   position: relative;
+  z-index: 2;
+}
+
+.streak-fire {
+  display: block;
+  pointer-events: none;
+}
+
+.streak-fire--table,
+.table-drawing,
+.table-drawing-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.streak-fire--table {
+  z-index: 0;
+}
+
+.table-drawing {
   z-index: 1;
+  pointer-events: none;
+}
+
+.table-drawing-input {
+  z-index: 3;
+  pointer-events: none;
+}
+
+.table-drawing-input.is-active {
+  z-index: 3;
+  pointer-events: auto;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.drawing-tools {
+  display: none;
+}
+
+@media (min-width: 701px) and (hover: hover) and (pointer: fine) {
+  .drawing-tools {
+    position: absolute;
+    right: 14px;
+    bottom: 12px;
+    z-index: 4;
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+  }
+}
+
+.drawing-tools__brush {
+  display: grid;
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid rgb(245 185 59 / 45%);
+  border-radius: 12px;
+  background: rgb(4 18 11 / 92%);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 35%);
+}
+
+.drawing-tools__colors {
+  display: grid;
+  grid-template-columns: repeat(5, 18px);
+  gap: 5px;
+}
+
+.drawing-tools__color {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 2px solid rgb(255 255 255 / 35%);
+  border-radius: 50%;
+  background: var(--brush-color);
+  cursor: pointer;
+}
+
+.drawing-tools__color.is-selected {
+  border-color: white;
+  box-shadow: 0 0 0 2px var(--ink), 0 0 0 4px var(--gold);
+}
+
+.drawing-tools__width {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.drawing-tools__width input {
+  width: 72px;
+  accent-color: var(--gold);
+}
+
+.drawing-tools__button {
+  padding: 6px 10px;
+  border: 1px solid rgb(245 185 59 / 55%);
+  border-radius: 999px;
+  background: rgb(4 18 11 / 82%);
+  color: var(--paper);
+  font: 700 11px var(--font-ui);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 28%);
+}
+
+.drawing-tools__button:hover:not(:disabled),
+.drawing-tools__button.is-active {
+  border-color: var(--gold);
+  background: rgb(245 185 59 / 22%);
+  color: var(--gold);
+}
+
+.drawing-tools__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.table__king {
+  position: absolute;
+  left: 16px;
+  bottom: 12px;
+  z-index: 3;
+  width: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  opacity: 0.08;
+  rotate: -8deg;
+  cursor: default;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.table__king:hover,
+.table__king:focus-visible {
+  opacity: 0.22;
+}
+
+.table__king img {
+  display: block;
+  width: 100%;
+}
+
+.table__king.is-unlocked {
+  opacity: 0.42;
+  filter: drop-shadow(0 0 8px var(--gold));
+}
+
+.room--royal .table__rim {
+  box-shadow:
+    0 26px 60px rgb(0 0 0 / 55%),
+    0 0 24px rgb(245 185 59 / 32%),
+    inset 0 2px 0 rgb(255 255 255 / 24%),
+    inset 0 -7px 16px rgb(0 0 0 / 48%);
 }
 
 .table__play {
@@ -1049,6 +1208,11 @@
 
 .room-header { position: relative; z-index: 6; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .room-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px; border-radius: 12px; background: rgb(8 7 14 / 88%); font-size: 13px; }
+.streak-stat { position: relative; display: inline-grid; place-items: center; min-width: 92px; min-height: 26px; border-radius: 999px; }
+.streak-stat.is-lit { background: rgb(108 31 8 / 38%); box-shadow: 0 0 14px rgb(255 105 20 / 25%); }
+.streak-fire--indicator { position: absolute; inset: -22px -10px 0; width: calc(100% + 20px); height: calc(100% + 22px); }
+.streak-stat__label { position: relative; z-index: 1; font-weight: 700; text-shadow: 0 1px 3px #000; }
+.royal-badge { color: var(--gold); font-family: var(--font-display); font-size: 10px; letter-spacing: 0.06em; text-shadow: 0 0 8px rgb(245 185 59 / 45%); }
 .hall-of-shame { position: relative; }
 .hall-of-shame summary { cursor: pointer; color: var(--gold); }
 .hall-of-shame__body { position: absolute; right: 0; top: 28px; width: min(300px, 80vw); max-height: 260px; overflow-y: auto; padding: 16px; border: 1px solid var(--gold); border-radius: 12px; background: #100e1a; }

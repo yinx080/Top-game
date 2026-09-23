@@ -129,6 +129,10 @@ volteo en el mismo instante.
 
 - La sala conserva victorias totales, racha actual y mejor racha. Una derrota
   corta la racha; una ronda cancelada no suma ni resta. Volver al lobby conserva los datos.
+  La racha enciende un fuego Canvas que crece alrededor del tapete con cada victoria.
+- En ordenador, cualquier jugador puede activar «Pintar» y dibujar sobre el tapete;
+  puede elegir color y grosor, todos ven los trazos suaves en directo y el anfitrión
+  puede limpiar la mesa.
 - El «hall of shame» cuenta un fallo por jugador y ronda cuando el valor de su
   carta no coincide con el que ocuparía ese lugar en el top ordenado. Se señalan
   todos los jugadores afectados, respetando empates e ignorando el joker.

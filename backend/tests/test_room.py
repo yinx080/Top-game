@@ -489,6 +489,59 @@ def test_chat_travels_inside_the_room_state():
     assert chat[0]["playerId"] == ana
 
 
+# ------------------------------------------------------------------ dibujo
+
+
+def test_drawing_is_validated_attributed_serialized_and_cleared_next_round():
+    from app.views import room_view
+
+    room = make_room()
+    guest = next(pid for pid in room.players if pid != room.host_id)
+    segment = room.add_drawing_segment(
+        guest,
+        [{"x": 0.123456, "y": 0.2}, {"x": 0.4, "y": 0.5}, {"x": 0.8, "y": 1}],
+        7,
+        3,
+    )
+
+    assert (segment.player_id, segment.color, segment.width) == (guest, 7, 3)
+    assert segment.points[0] == (0.1235, 0.2)
+    assert room_view(room, room.host_id)["drawing"] == [{
+        "id": 1,
+        "playerId": guest,
+        "color": 7,
+        "width": 3,
+        "points": [{"x": 0.1235, "y": 0.2}, {"x": 0.4, "y": 0.5}, {"x": 0.8, "y": 1.0}],
+    }]
+
+    for bad in (None, True, "0.2", -0.1, 1.1, float("nan"), float("inf")):
+        with pytest.raises(GameError, match="trazo"):
+            room.add_drawing_segment(guest, [{"x": bad, "y": 0.2}, {"x": 0.8, "y": 0.9}], 0, 2)
+    with pytest.raises(GameError):
+        room.add_drawing_segment(guest, [{"x": 0.2, "y": 0.2}] * 2, 0, 2)
+    for bad_color, bad_width in ((10, 2), (True, 2), (0, 0), (0, 4), (0, "2")):
+        with pytest.raises(GameError):
+            room.add_drawing_segment(
+                guest, [{"x": 0, "y": 0}, {"x": 1, "y": 1}], bad_color, bad_width,
+            )
+    with pytest.raises(Forbidden):
+        room.clear_drawing(guest)
+
+    room.start_round(room.host_id)
+    assert room.drawing == []
+    assert room.drawing_seq == 1
+
+
+def test_host_can_clear_drawing_without_reusing_segment_ids():
+    room = make_room()
+    room.add_drawing_segment(room.host_id, [{"x": 0, "y": 0}, {"x": 1, "y": 1}], 0, 1)
+    room.clear_drawing(room.host_id)
+    assert room.drawing == []
+    assert room.add_drawing_segment(
+        room.host_id, [{"x": 0, "y": 1}, {"x": 1, "y": 0}], 2, 3,
+    ).id == 2
+
+
 @pytest.mark.parametrize("joker_slot", [0, 1, 2])
 @pytest.mark.parametrize("values, outcome", [([3, 9], "win"), ([9, 3], "lose")])
 def test_joker_fits_anywhere_but_does_not_hide_other_errors(joker_slot, values, outcome):

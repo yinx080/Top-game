@@ -24,9 +24,9 @@ from fastapi import WebSocket
 
 from .config import settings
 from .errors import Conflict, NotFound
-from .room import Phase, Room, mono
+from .room import DrawingSegment, Phase, Room, mono
 from .security import new_room_code
-from .views import room_summary, room_view
+from .views import drawing_segment_view, room_summary, room_view
 
 log = logging.getLogger("topcard.store")
 
@@ -91,6 +91,19 @@ class RoomRuntime:
     async def send_to(self, socket: WebSocket, payload: dict[str, Any]) -> None:
         with contextlib.suppress(Exception):
             await socket.send_json(payload)
+
+    async def broadcast_drawing(self, segment: DrawingSegment) -> None:
+        """Difunde sólo el trazo nuevo; el estado completo lo conserva para reconexiones."""
+        payload = {"type": "drawing", "segment": drawing_segment_view(segment)}
+        dead: list[tuple[str, WebSocket]] = []
+        for player_id, pool in list(self.sockets.items()):
+            for socket in list(pool):
+                try:
+                    await socket.send_json(payload)
+                except Exception:  # noqa: BLE001 - socket caído a media escritura
+                    dead.append((player_id, socket))
+        for player_id, socket in dead:
+            self.detach(player_id, socket)
 
     # ------------------------------------------------------- ritmo del destape
 

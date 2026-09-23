@@ -46,6 +46,9 @@ class Settings:
     chat_history: int = 40      # mensajes que se conservan (van en cada estado)
     chat_cooldown: float = 0.5  # segundos mínimos entre mensajes de un jugador
 
+    # Trazos sobre el tapete (también viajan en cada estado para reconectar)
+    max_drawing_segments: int = 600
+
     # Votación de tema
     min_candidates: int = 3
     max_candidates: int = 6

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button, Spinner } from '../components/ui'
 import { goHome } from '../lib/router'
@@ -15,12 +15,17 @@ import type { Seat } from '../types'
 import '../styles/room.css'
 import { LowTimeAlert } from '../room/LowTimeAlert'
 import { OutcomeBorder } from '../room/OutcomeBorder'
+import { StreakFire } from '../room/StreakFire'
+import { TableDrawing } from '../room/TableDrawing'
 
 export function Room({ seat }: { seat: Seat }) {
   const { room, receivedAt, status, fatal, connect, disconnect, leave, send, toasts } = useRoom()
   const reducedMotion = useSession((state) => state.settings.reducedMotion)
+  const royalMode = useSession((state) => state.royalMode)
+  const unlockRoyalMode = useSession((state) => state.unlockRoyalMode)
   const dropSeat = useSession((state) => state.dropSeat)
   const [answer, setAnswer] = useState('')
+  const kingClicks = useRef(0)
 
   const backToMenu = () => {
     dropSeat(seat.code)
@@ -85,15 +90,19 @@ export function Room({ seat }: { seat: Seat }) {
   }
 
   return (
-    <div className={`room ${showHand ? '' : 'room--nohand'}`}>
+    <div className={`room ${showHand ? '' : 'room--nohand'}${royalMode ? ' room--royal' : ''}`}>
       <div className="room__floor" aria-hidden="true" />
 
       <header className="room-header">
       <RoomBar room={room} onLeave={leaveRoom} />
       <aside className="room-stats" aria-label="Estadísticas de la sala">
         <span>🏆 {room.wins} victorias</span>
-        <span>🔥 Racha: {room.winStreak}</span>
+        <span className={`streak-stat${room.winStreak ? ' is-lit' : ''}`}>
+          <StreakFire streak={room.winStreak} reducedMotion={reducedMotion} variant="indicator" />
+          <span className="streak-stat__label">🔥 Racha: {room.winStreak}</span>
+        </span>
         <span>Récord: {room.bestStreak}</span>
+        {royalMode && <span className="royal-badge">♛ Clase Rey</span>}
         <details className="hall-of-shame">
           <summary>Hall of shame · {room.hallOfShame.length}</summary>
           <div className="hall-of-shame__body">
@@ -119,9 +128,23 @@ export function Room({ seat }: { seat: Seat }) {
       <div className="table">
         <div className="table__rim">
           <div className="table__felt">
+            <StreakFire streak={room.winStreak} reducedMotion={reducedMotion} variant="table" />
+            <TableDrawing room={room} send={send} connected={status === 'open'} />
             <span className="table__brand" aria-hidden="true">
               TOP CARD
             </span>
+            <button
+              type="button"
+              className={`table__king${royalMode ? ' is-unlocked' : ''}`}
+              aria-label="Carta K decorativa"
+              onClick={() => {
+                if (royalMode) return
+                kingClicks.current += 1
+                if (kingClicks.current >= 10) unlockRoyalMode()
+              }}
+            >
+              <img src="/art/cards/KS.png" alt="" />
+            </button>
 
             <div className="table__seats">
               <Seats

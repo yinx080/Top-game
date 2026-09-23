@@ -333,6 +333,39 @@ def test_an_empty_chat_message_is_refused(client):
         assert read_until(ws, lambda m: m.get("type") == "error")["code"] == "empty_message"
 
 
+def test_drawing_reaches_everyone_and_only_the_host_can_clear_it(client):
+    host = create_room(client)
+    guest = join(client, host["code"], "Beto")
+
+    with (
+        client.websocket_connect(f"/ws/{host['code']}?token={host['token']}") as ws_host,
+        client.websocket_connect(f"/ws/{host['code']}?token={guest['token']}") as ws_guest,
+    ):
+        read_until(ws_host, lambda m: m.get("type") == "welcome")
+        read_until(ws_guest, lambda m: m.get("type") == "welcome")
+
+        ws_guest.send_json({
+            "action": "draw",
+            "points": [{"x": 0.1, "y": 0.2}, {"x": 0.5, "y": 0.7}, {"x": 0.8, "y": 0.9}],
+            "color": 6,
+            "width": 3,
+        })
+        host_seen = read_until(ws_host, lambda m: m.get("type") == "drawing")["segment"]
+        guest_seen = read_until(ws_guest, lambda m: m.get("type") == "drawing")["segment"]
+        assert host_seen == guest_seen
+        assert host_seen["playerId"] == guest["playerId"]
+        assert (host_seen["color"], host_seen["width"]) == (6, 3)
+
+        ws_guest.send_json({"action": "clear_drawing"})
+        assert read_until(ws_guest, lambda m: m.get("type") == "error")["code"] == "not_host"
+        ws_host.send_json({"action": "clear_drawing"})
+        cleared = read_until(
+            ws_guest,
+            lambda m: m.get("type") == "state" and m.get("event", {}).get("kind") == "drawing_cleared",
+        )
+        assert cleared["room"]["drawing"] == []
+
+
 # --------------------------------------------------------------------- seguridad
 
 

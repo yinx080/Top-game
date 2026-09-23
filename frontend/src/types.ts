@@ -67,6 +67,14 @@ export interface ChatMessage {
   at: number
 }
 
+export interface DrawingSegment {
+  id: number
+  playerId: string
+  color: number
+  width: 1 | 2 | 3
+  points: { x: number; y: number }[]
+}
+
 export interface RoomView {
   code: string
   name: string
@@ -101,6 +109,7 @@ export interface RoomView {
   placementSeconds: number
   savedTopics: number
   chat: ChatMessage[]
+  drawing: DrawingSegment[]
   limits: {
     answer: number
     topic: number
@@ -108,6 +117,7 @@ export interface RoomView {
     chat: number
     minValue: number
     maxValue: number
+    drawingSegments: number
   }
 }
 
@@ -150,12 +160,14 @@ export type ServerEvent =
   | { kind: 'round_aborted' }
   | { kind: 'back_to_lobby' }
   | { kind: 'players_changed' }
+  | { kind: 'drawing_cleared' }
 
 export type ServerMessage =
   | { type: 'welcome'; playerId: string; code: string }
   | { type: 'state'; room: RoomView; event?: ServerEvent }
   | { type: 'error'; code: string; message: string }
   | { type: 'pong' }
+  | { type: 'drawing'; segment: DrawingSegment }
 
 export type ClientMessage =
   | { action: 'set_timers'; proposalSeconds?: number; voteSeconds?: number; placementSeconds?: number }
@@ -171,3 +183,5 @@ export type ClientMessage =
   | { action: 'back_to_lobby' }
   | { action: 'kick'; playerId: string }
   | { action: 'chat'; text: string; replyToId?: number }
+  | { action: 'draw'; points: { x: number; y: number }[]; color: number; width: 1 | 2 | 3 }
+  | { action: 'clear_drawing' }

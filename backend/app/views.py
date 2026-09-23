@@ -10,7 +10,7 @@ from typing import Any
 
 from .config import settings
 from .deck import MAX_VALUE, MIN_VALUE
-from .room import Phase, Room, mono
+from .room import DrawingSegment, Phase, Room, mono
 
 
 def room_summary(room: Room) -> dict[str, Any]:
@@ -94,6 +94,16 @@ def _chat_view(room: Room) -> list[dict[str, Any]]:
     ]
 
 
+def drawing_segment_view(segment: DrawingSegment) -> dict[str, Any]:
+    return {
+        "id": segment.id,
+        "playerId": segment.player_id,
+        "color": segment.color,
+        "width": segment.width,
+        "points": [{"x": x, "y": y} for x, y in segment.points],
+    }
+
+
 def room_view(room: Room, viewer_id: str | None) -> dict[str, Any]:
     viewer = room.players.get(viewer_id) if viewer_id else None
 
@@ -156,6 +166,7 @@ def room_view(room: Room, viewer_id: str | None) -> dict[str, Any]:
         "placementSeconds": room.placement_seconds,
         "savedTopics": len(room.topic_pool),
         "chat": _chat_view(room),
+        "drawing": [drawing_segment_view(segment) for segment in room.drawing],
         "limits": {
             "answer": settings.max_answer_len,
             "topic": settings.max_topic_len,
@@ -163,5 +174,6 @@ def room_view(room: Room, viewer_id: str | None) -> dict[str, Any]:
             "chat": settings.max_chat_len,
             "minValue": MIN_VALUE,
             "maxValue": MAX_VALUE,
+            "drawingSegments": settings.max_drawing_segments,
         },
     }
