@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react'
+
 import { Button } from '../components/ui'
 import type { RoomView } from '../types'
 
@@ -11,8 +13,20 @@ export function Seats({
   isHost: boolean
   onKick: (playerId: string) => void
 }) {
+  const listRef = useRef<HTMLUListElement>(null)
+
+  // En móvil las fichas van en una fila deslizable: centramos la del turno para
+  // que no se quede fuera de la vista. Sin desbordamiento no se mueve nada.
+  useEffect(() => {
+    const list = listRef.current
+    const turn = list?.querySelector<HTMLElement>('.seat--turn')
+    if (!list || !turn || list.scrollWidth <= list.clientWidth) return
+    const offset = turn.getBoundingClientRect().left - list.getBoundingClientRect().left
+    list.scrollTo({ left: list.scrollLeft + offset - (list.clientWidth - turn.offsetWidth) / 2, behavior: 'smooth' })
+  }, [room.currentPlayerId])
+
   return (
-    <ul className="seats">
+    <ul className="seats" ref={listRef}>
       {room.players.map((player) => {
         const waitingProposal = room.phase === 'proposing' && !player.proposed
         const waitingVote = room.phase === 'voting' && !player.voted
