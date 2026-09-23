@@ -30,8 +30,10 @@ export function Menu() {
   const [code, setCode] = useState('')
   const [codeError, setCodeError] = useState<string | null>(null)
 
-  const loadRooms = useCallback(async () => {
-    setLoading(true)
+  // Los refrescos automáticos van en silencio: la animación de carga sólo sale
+  // cuando el jugador pulsa ↻ (la primera carga ya tiene su spinner propio).
+  const loadRooms = useCallback(async (manual = false) => {
+    if (manual) setLoading(true)
     try {
       setRooms(await api.publicRooms())
       setOffline(false)
@@ -39,7 +41,7 @@ export function Menu() {
       setOffline(true)
       setRooms([])
     } finally {
-      setLoading(false)
+      if (manual) setLoading(false)
     }
   }, [])
 
@@ -138,7 +140,7 @@ export function Menu() {
               <h2 className="panel__title">Salas públicas</h2>
               <div className="row">
                 {loading && <span className="hint">actualizando…</span>}
-                <Button size="small" variant="ghost" onClick={() => void loadRooms()}>
+                <Button size="small" variant="ghost" onClick={() => void loadRooms(true)}>
                   ↻
                 </Button>
               </div>

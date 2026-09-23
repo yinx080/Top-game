@@ -83,6 +83,8 @@ export function Room({ seat }: { seat: Seat }) {
   // ocupa ese espacio y la mesa crece al no haber carta en mano.
   const showTable = room.table.length > 0 || room.phase === 'placing'
   const showHand = Boolean(you) && (room.phase === 'placing' || room.phase === 'revealing')
+  // Una sola victoria todavía no es racha: el fuego se enciende desde la segunda seguida.
+  const streakFire = room.winStreak >= 2 ? room.winStreak : 0
 
   const leaveRoom = () => {
     leave()
@@ -97,8 +99,8 @@ export function Room({ seat }: { seat: Seat }) {
       <RoomBar room={room} onLeave={leaveRoom} />
       <aside className="room-stats" aria-label="Estadísticas de la sala">
         <span>🏆 {room.wins} victorias</span>
-        <span className={`streak-stat${room.winStreak ? ' is-lit' : ''}`}>
-          <StreakFire streak={room.winStreak} reducedMotion={reducedMotion} variant="indicator" />
+        <span className={`streak-stat${streakFire ? ' is-lit' : ''}`}>
+          <StreakFire streak={streakFire} reducedMotion={reducedMotion} variant="indicator" />
           <span className="streak-stat__label">🔥 Racha: {room.winStreak}</span>
         </span>
         <span>Récord: {room.bestStreak}</span>
@@ -128,7 +130,7 @@ export function Room({ seat }: { seat: Seat }) {
       <div className="table">
         <div className="table__rim">
           <div className="table__felt">
-            <StreakFire streak={room.winStreak} reducedMotion={reducedMotion} variant="table" />
+            <StreakFire streak={streakFire} reducedMotion={reducedMotion} variant="table" />
             <TableDrawing room={room} send={send} connected={status === 'open'} />
             <span className="table__brand" aria-hidden="true">
               TOP CARD
