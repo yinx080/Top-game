@@ -25,19 +25,20 @@ DIST = (Path(__file__).resolve().parents[2] / "frontend" / "dist").resolve()
 # web saldría como `application/octet-stream`.
 mimetypes.add_type("application/manifest+json", ".webmanifest")
 
-# Cabeceras de seguridad para todo lo que sale del servidor. Lo único de fuera
-# que carga el juego son las tipografías de Google (`index.html`); las cartas y
-# los sonidos viajan en el propio build, así que el resto puede ir cerrado.
+# Cabeceras de seguridad para todo lo que sale del servidor. Además de las
+# tipografías, Umami carga su script y envía las visitas a su gateway.
 FONT_CSS = "https://fonts.googleapis.com"
 FONT_FILES = "https://fonts.gstatic.com"
+UMAMI_SCRIPT = "https://cloud.umami.is"
+UMAMI_COLLECTOR = "https://gateway.umami.is"
 CSP = (
     "default-src 'self'; "
     "img-src 'self' data:; "
     # `unsafe-inline` es inevitable: React pinta los colores de cada jugador en
     # el atributo `style` de cada elemento.
     f"style-src 'self' 'unsafe-inline' {FONT_CSS}; "
-    "script-src 'self'; "
-    "connect-src 'self' ws: wss:; "
+    f"script-src 'self' {UMAMI_SCRIPT}; "
+    f"connect-src 'self' ws: wss: {UMAMI_COLLECTOR}; "
     f"font-src 'self' data: {FONT_FILES}; "
     "media-src 'self' data:; "
     "object-src 'none'; "
