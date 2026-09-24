@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .api import router as api_router
@@ -19,6 +20,10 @@ from .ws import router as ws_router
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 DIST = (Path(__file__).resolve().parents[2] / "frontend" / "dist").resolve()
+
+# Las imágenes slim de Linux no traen este tipo en su tabla y el manifest de la
+# web saldría como `application/octet-stream`.
+mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 # Cabeceras de seguridad para todo lo que sale del servidor. Lo único de fuera
 # que carga el juego son las tipografías de Google (`index.html`); las cartas y
@@ -116,8 +121,10 @@ def create_app() -> FastAPI:
         app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
         app.mount("/art", StaticFiles(directory=DIST / "art"), name="art")
 
-        @app.get("/{full_path:path}", include_in_schema=False)
-        async def spa(full_path: str) -> FileResponse:
+        # HEAD también: hay rastreadores y generadores de vistas previas que
+        # preguntan así antes de descargar, y sin él reciben un 405.
+        @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+        async def spa(full_path: str) -> Response:
             # Una ruta de API que no existe es un 404, no el index: devolver el
             # HTML enmascararía errores del cliente.
             if full_path.startswith(("api/", "ws/")):
@@ -128,14 +135,21 @@ def create_app() -> FastAPI:
 
             # Las páginas SEO estáticas pueden vivir como `ruta/index.html`
             # dentro del build y seguir usando URLs limpias, por ejemplo
-            # `/como-se-juega` en vez de `/como-se-juega/index.html`.
+            # `/como-se-juega` en vez de `/como-se-juega/index.html`. Con la
+            # barra final se redirige a la limpia: una sola URL por página.
             clean_path = full_path.strip("/")
             if clean_path:
                 section_index = safe_dist_file(f"{clean_path}/index.html")
                 if section_index is not None:
+                    if full_path.endswith("/"):
+                        return RedirectResponse(f"/{clean_path}", status_code=301)
                     return FileResponse(section_index)
 
-            return FileResponse(DIST / "index.html")
+            # El juego sólo vive en `/` (las salas van por hash). Cualquier otra
+            # ruta es un 404 de verdad para los buscadores, aunque el cuerpo
+            # siga siendo el juego para que la persona no se quede en blanco.
+            status = 200 if not clean_path else 404
+            return FileResponse(DIST / "index.html", status_code=status)
 
     return app
 

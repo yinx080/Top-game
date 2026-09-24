@@ -99,6 +99,9 @@
   display: flex;
   align-items: baseline;
   gap: 0.3em;
+  /* En la portada es un h1: sin el margen ni la negrita que trae de serie. */
+  margin: 0;
+  font-weight: 400;
   font-family: var(--font-display);
   line-height: 1;
   user-select: none;
@@ -175,6 +178,14 @@
 
 .menu__footer a {
   color: var(--paper-dim);
+}
+
+/* Enlace a la página estática de reglas: también sirve para que los buscadores
+   la encuentren desde la portada. */
+.menu__guide {
+  align-self: center;
+  font-size: 12px;
+  color: var(--gold);
 }
 
 /* ------------------------------------------------------------ lista salas */

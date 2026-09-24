@@ -6,21 +6,33 @@
     <meta name="theme-color" content="#14121f" />
     <meta
       name="description"
-      content="TopCards es un juego de cartas cooperativo online para jugar con amigos. Ordenad las cartas de menor a mayor sin enseñar vuestras cartas."
+      content="TopCards (Top Cards) es un juego de cartas cooperativo online y gratis para jugar con amigos desde el navegador. Ordenad las cartas de menor a mayor sin enseñarlas."
     />
-    <meta name="robots" content="index,follow" />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
     <link rel="canonical" href="https://topcards.es/" />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="es_ES" />
     <meta property="og:site_name" content="TopCards" />
-    <meta property="og:title" content="TopCards — Juego de cartas cooperativo online" />
+    <meta property="og:title" content="TopCards — Juego de cartas cooperativo online gratis" />
     <meta property="og:description" content="Ordenad las cartas de menor a mayor sin enseñar vuestras cartas. Crea una sala y juega con tus amigos." />
     <meta property="og:url" content="https://topcards.es/" />
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="TopCards — Juego de cartas cooperativo online" />
+    <meta property="og:image" content="https://topcards.es/og-image.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Logo de TopCards: un as, un joker y un rey en abanico" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="TopCards — Juego de cartas cooperativo online gratis" />
     <meta name="twitter:description" content="Un juego de cartas cooperativo online para jugar con amigos." />
-    <title>TopCards — Juego de cartas cooperativo online</title>
-    <link rel="icon" href="/art/cards/AS.png" />
+    <meta name="twitter:image" content="https://topcards.es/og-image.jpg" />
+    <meta name="twitter:image:alt" content="Logo de TopCards: un as, un joker y un rey en abanico" />
+    <meta name="application-name" content="TopCards" />
+    <meta name="apple-mobile-web-app-title" content="TopCards" />
+    <title>TopCards — Juego de cartas cooperativo online gratis</title>
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -33,10 +45,49 @@
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "TopCards",
-      "url": "https://topcards.es/",
-      "description": "Juego de cartas cooperativo online para jugar con amigos."
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://topcards.es/#website",
+          "name": "TopCards",
+          "alternateName": ["Top Cards", "topcards", "topcards.es"],
+          "url": "https://topcards.es/",
+          "inLanguage": "es",
+          "description": "Juego de cartas cooperativo online para jugar con amigos.",
+          "publisher": { "@id": "https://topcards.es/#organization" }
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://topcards.es/#organization",
+          "name": "TopCards",
+          "alternateName": "Top Cards",
+          "url": "https://topcards.es/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://topcards.es/icons/icon-512.png",
+            "width": 512,
+            "height": 512
+          }
+        },
+        {
+          "@type": "VideoGame",
+          "@id": "https://topcards.es/#game",
+          "name": "TopCards",
+          "alternateName": ["Top Cards", "topcards"],
+          "url": "https://topcards.es/",
+          "image": "https://topcards.es/og-image.jpg",
+          "description": "Juego de cartas cooperativo online y gratis. Cada jugador recibe una carta secreta, el grupo vota un tema y hay que ordenar las cartas de menor a mayor sin enseñarlas.",
+          "genre": ["Juego de cartas", "Juego cooperativo", "Juego de fiesta"],
+          "gamePlatform": "Navegador web",
+          "applicationCategory": "GameApplication",
+          "operatingSystem": "Cualquiera con navegador",
+          "playMode": ["MultiPlayer", "CoOp"],
+          "inLanguage": "es",
+          "isAccessibleForFree": true,
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+          "publisher": { "@id": "https://topcards.es/#organization" }
+        }
+      ]
     }
     </script>
     <style>
@@ -140,6 +191,15 @@
       }
 
       @media (prefers-reduced-motion: reduce) { .boot__stage { display: none; } }
+
+      /* Texto de la portada antes de que arranque React (ver #root). El fondo va
+         aquí porque sin JavaScript no llega a cargarse la hoja del juego. */
+      html { background: #14121f; }
+      .seo-intro {
+        max-width: 640px; margin: 0 auto; padding: 48px 20px;
+        font-family: system-ui, sans-serif; line-height: 1.6; color: #f3ecdc; background: #14121f;
+      }
+      .seo-intro a { color: #f5b93b; }
     </style>
   </head>
   <body>
@@ -154,7 +214,26 @@
     </div>
     <!-- Espera a que cartas y tipografía estén listas y entonces arranca la animación. -->
     <script src="/boot-start.js"></script>
-    <div id="root"></div>
+    <!-- Sin JavaScript no hay juego ni nada que quite la animación: se oculta
+         para que al menos se lea el texto de abajo. -->
+    <noscript><style>#boot { display: none; }</style></noscript>
+    <!-- Texto real de la portada para buscadores y vistas previas que no ejecutan
+         JavaScript. React lo sustituye por el menú en cuanto arranca. -->
+    <div id="root">
+      <main class="seo-intro">
+        <h1>TopCards</h1>
+        <p>
+          <strong>TopCards</strong> (Top Cards) es un juego de cartas cooperativo online y gratis
+          para jugar con amigos desde el navegador, sin registrarse ni instalar nada.
+        </p>
+        <p>
+          Cada jugador recibe una carta que nadie más ve, el grupo vota un tema y, por turnos, cada
+          uno coloca su carta boca abajo acompañada de una palabra. Al destaparlas, si quedan
+          ordenadas de menor a mayor, gana todo el grupo.
+        </p>
+        <p><a href="/como-se-juega">Cómo se juega a TopCards</a></p>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

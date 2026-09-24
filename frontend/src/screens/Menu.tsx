@@ -104,7 +104,7 @@ export function Menu() {
 
       <main className="menu__inner">
         <header className="menu__header">
-          <Logo />
+          <Logo as="h1" />
           <p className="menu__tagline">
             Ordenad el top entre todos <span className="muted">· sin enseñar las cartas</span>
           </p>
@@ -212,6 +212,9 @@ export function Menu() {
                 <Button size="small" variant="ghost" onClick={() => setDialog('howto')}>
                   Ver las reglas
                 </Button>
+                <a className="menu__guide" href="/como-se-juega">
+                  Guía completa: cómo se juega
+                </a>
               </div>
             </section>
           </aside>

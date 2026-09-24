@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from app import api as api_module
 from app import store as store_module
 from app.config import settings as base_settings
-from app.main import create_app
+from app.main import DIST, create_app
 
 
 @pytest.fixture(autouse=True)
@@ -369,6 +369,11 @@ def test_drawing_reaches_everyone_and_only_the_host_can_clear_it(client):
 # --------------------------------------------------------------------- seguridad
 
 
+# Estas rutas sólo existen cuando hay un build del frontend que servir.
+needs_dist = pytest.mark.skipif(not DIST.is_dir(), reason="sin frontend/dist (npm run build)")
+
+
+@needs_dist
 def test_the_spa_catch_all_cannot_escape_the_build_folder(client):
     """`/{ruta}` sirve el index, nunca un fichero de fuera de `frontend/dist`."""
     for path in (
@@ -377,9 +382,52 @@ def test_the_spa_catch_all_cannot_escape_the_build_folder(client):
         "....//....//backend/app/config.py",
     ):
         response = client.get(f"/{path}")
-        assert response.status_code == 200, path
+        assert response.status_code == 404, path
         assert "TOPCARD_CORS_ORIGINS" not in response.text, path
         assert response.headers["content-type"].startswith("text/html"), path
+
+
+# ------------------------------------------------------------------------- SEO
+
+
+@needs_dist
+def test_only_real_pages_answer_200(client):
+    """La portada y las páginas estáticas dan 200; lo inventado, 404 con el juego dentro."""
+    assert client.get("/").status_code == 200
+    assert client.get("/como-se-juega").status_code == 200
+
+    missing = client.get("/pagina-que-no-existe")
+    assert missing.status_code == 404
+    assert missing.headers["content-type"].startswith("text/html")
+
+
+@needs_dist
+def test_a_trailing_slash_redirects_to_the_clean_url(client):
+    response = client.get("/como-se-juega/", follow_redirects=False)
+    assert response.status_code == 301
+    assert response.headers["location"] == "/como-se-juega"
+
+
+@needs_dist
+def test_pages_answer_head_requests(client):
+    assert client.head("/").status_code == 200
+    assert client.head("/como-se-juega").status_code == 200
+
+
+@needs_dist
+def test_seo_files_are_served_with_their_types(client):
+    expected = {
+        "/robots.txt": "text/plain",
+        "/sitemap.xml": "xml",
+        "/site.webmanifest": "application/manifest+json",
+        "/favicon.ico": "icon",
+        "/og-image.jpg": "image/jpeg",
+        "/icons/icon-512.png": "image/png",
+    }
+    for path, content_type in expected.items():
+        response = client.get(path)
+        assert response.status_code == 200, path
+        assert content_type in response.headers["content-type"], path
 
 
 def test_responses_carry_the_security_headers(client):
