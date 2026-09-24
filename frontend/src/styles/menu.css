@@ -112,6 +112,9 @@
   flex-direction: column;
   gap: 22px;
   max-width: 1080px;
+  /* Llena la pantalla entera para que el pie legal quede debajo del pliegue:
+     sólo se ve al hacer scroll. 56px = relleno vertical de `.menu`. */
+  min-height: calc(100dvh - 56px);
   margin: 0 auto;
 }
 
@@ -188,26 +191,74 @@
 
 /* ---------------------------------------------------------------- columnas */
 
+/* En escritorio, rejilla 2×2 con filas simétricas:
+     Salas públicas  | Hot topics
+     Reglas          | Entrar con código */
 .menu__columns {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr);
+  grid-template-areas:
+    'rooms topics'
+    'rules code';
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
 }
 
+.menu__rooms { grid-area: rooms; }
+.menu__topics { grid-area: topics; }
+.menu__rules { grid-area: rules; }
+.menu__code { grid-area: code; }
+
+.menu__rooms {
+  display: flex;
+  flex-direction: column;
+}
+
+/* `contain: size` hace que la lista no empuje la altura de la fila: la marcan
+   los hot topics (o el mínimo) y las salas rellenan ese hueco con scroll. */
 .menu__rooms-body {
-  max-height: min(48vh, 420px);
+  flex: 1 1 auto;
+  min-height: 300px;
   padding: 12px;
+  contain: size;
 }
 
 .menu__footer {
-  padding-top: 6px;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 1080px;
+  margin: 40px auto 0;
+  padding: 18px 0 4px;
+  border-top: 2px solid var(--night-line);
   font-size: 12px;
   text-align: center;
 }
 
 .menu__footer a {
   color: var(--paper-dim);
+}
+
+.menu__legal {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 18px;
+  font-size: 13px;
+}
+
+.menu__legal a {
+  color: var(--paper);
+  text-decoration: none;
+}
+
+.menu__legal a:hover,
+.menu__legal a:focus-visible {
+  color: var(--gold);
+  text-decoration: underline;
 }
 
 /* Enlace a la página estática de reglas: también sirve para que los buscadores
@@ -537,6 +588,17 @@
 @media (max-width: 860px) {
   .menu__columns {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      'rooms'
+      'topics'
+      'code'
+      'rules';
+  }
+
+  .menu__rooms-body {
+    min-height: 0;
+    max-height: min(48vh, 420px);
+    contain: none;
   }
 
   .menu__actions {
@@ -551,6 +613,10 @@
 @media (max-width: 520px) {
   .menu {
     padding: 20px 12px;
+  }
+
+  .menu__inner {
+    min-height: calc(100dvh - 40px);
   }
 
   .menu__bar {

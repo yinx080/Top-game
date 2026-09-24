@@ -118,9 +118,18 @@ async def _dispatch(
 
     elif action == "draw":
         segment = room.add_drawing_segment(
-            player_id, data.get("points"), data.get("color"), data.get("width")
+            player_id, data.get("points"), data.get("color"), data.get("width"),
+            data.get("erase", False), data.get("start", True),
         )
         await runtime.broadcast_drawing(segment)
+
+    elif action == "undo_drawing":
+        room.undo_drawing(player_id)
+        await runtime.broadcast({"kind": "drawing_undone"})
+
+    elif action == "clear_own_drawing":
+        room.clear_own_drawing(player_id)
+        await runtime.broadcast({"kind": "drawing_undone"})
 
     elif action == "clear_drawing":
         room.clear_drawing(player_id)

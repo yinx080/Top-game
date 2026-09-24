@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#14121f" />
+    <meta name="description" content="Aviso legal, términos y condiciones, política de privacidad y política de cookies de TopCards." />
+    <meta name="robots" content="index,follow" />
+    <link rel="canonical" href="https://topcards.es/legal" />
+    <title>Información legal — TopCards</title>
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Mismos colores, tipografías y paneles que el juego (src/styles/global.css
+         y menu.css), pero sin cartas flotantes: aquí manda la lectura. -->
+    <style>
+      :root {
+        color-scheme: dark;
+        --night: #14121f;
+        --night-soft: #1e1b2d;
+        --night-line: #322d49;
+        --ink: #0a0810;
+        --paper: #f7f4ec;
+        --paper-dim: #c9c3b6;
+        --gold: #f5b93b;
+        --gold-deep: #b97f14;
+        --red-deep: #9c2f1f;
+        --wood-deep: #6b3a12;
+        --font-display: 'Bungee', 'Arial Black', system-ui, sans-serif;
+        --font-ui: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+        --radius: 10px;
+        --radius-lg: 18px;
+        --shadow-drop: 0 14px 34px rgb(0 0 0 / 45%);
+      }
+
+      *, *::before, *::after { box-sizing: border-box; }
+
+      html { scroll-behavior: smooth; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font-ui);
+        font-size: 15px;
+        line-height: 1.65;
+        color: var(--paper);
+        -webkit-font-smoothing: antialiased;
+        /* El fondo del menú: luces suaves y la trama de triángulos del reverso. */
+        background:
+          radial-gradient(ellipse 80% 60% at 50% 0%, rgb(63 182 168 / 12%), transparent 70%),
+          radial-gradient(ellipse 70% 50% at 50% 100%, rgb(224 78 57 / 10%), transparent 70%),
+          repeating-linear-gradient(45deg, rgb(255 255 255 / 2.2%) 0 2px, transparent 2px 16px),
+          repeating-linear-gradient(-45deg, rgb(255 255 255 / 2.2%) 0 2px, transparent 2px 16px),
+          linear-gradient(180deg, #191627, #100e1a 60%, #0a0810);
+        background-attachment: fixed;
+      }
+
+      a { color: var(--gold); }
+      a:focus-visible, .btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+      .page { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 32px; }
+
+      /* ------------------------------------------------------------ cabecera */
+
+      .topbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 36px;
+      }
+
+      .logo {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.3em;
+        font-family: var(--font-display);
+        font-size: 26px;
+        line-height: 1;
+        text-decoration: none;
+      }
+
+      .logo__word { color: var(--paper); text-shadow: 2px 2px 0 var(--red-deep), -1px -1px 0 rgb(63 182 168 / 75%); }
+      .logo__word--alt { color: var(--gold); text-shadow: 2px 2px 0 var(--wood-deep), -1px -1px 0 rgb(224 78 57 / 65%); }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 18px;
+        border: 2px solid var(--gold-deep);
+        border-radius: var(--radius);
+        background: var(--gold);
+        color: var(--ink);
+        font-family: var(--font-display);
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        text-decoration: none;
+        box-shadow: 0 4px 0 var(--gold-deep);
+        transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
+      }
+
+      .btn:hover { filter: brightness(1.1); }
+      .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--gold-deep); }
+
+      .hero { margin-bottom: 28px; }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        font-family: var(--font-display);
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        color: var(--gold);
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: clamp(28px, 5.5vw, 46px);
+        line-height: 1.1;
+      }
+
+      .lead { max-width: 640px; margin: 0; color: var(--paper-dim); }
+
+      /* -------------------------------------------------------------- rejilla */
+
+      .layout {
+        display: grid;
+        grid-template-columns: 240px minmax(0, 1fr);
+        gap: 22px;
+        align-items: start;
+      }
+
+      .panel {
+        border: 2px solid var(--night-line);
+        border-radius: var(--radius-lg);
+        background: linear-gradient(180deg, rgb(30 27 45 / 92%), rgb(16 14 26 / 94%));
+        box-shadow: var(--shadow-drop);
+      }
+
+      .panel__head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 20px;
+        border-bottom: 2px solid var(--night-line);
+      }
+
+      .panel__title {
+        margin: 0;
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: 13px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .panel__num {
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+        width: 30px;
+        height: 30px;
+        border: 2px solid var(--gold-deep);
+        border-radius: 8px;
+        background: rgb(245 185 59 / 12%);
+        color: var(--gold);
+        font-family: var(--font-display);
+        font-size: 12px;
+      }
+
+      .panel__body { padding: 8px 24px 24px; }
+
+      /* Índice lateral: fijo al hacer scroll en escritorio. */
+      .toc { position: sticky; top: 20px; }
+      .toc ol { margin: 0; padding: 10px; list-style: none; counter-reset: doc; }
+
+      .toc a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 10px;
+        border: 2px solid transparent;
+        border-radius: var(--radius);
+        color: var(--paper);
+        font-weight: 600;
+        text-decoration: none;
+        transition: background 0.14s ease, border-color 0.14s ease;
+      }
+
+      .toc a::before {
+        counter-increment: doc;
+        content: counter(doc, decimal-leading-zero);
+        font-family: var(--font-display);
+        font-size: 11px;
+        color: var(--gold);
+      }
+
+      .toc a:hover { background: rgb(245 185 59 / 10%); border-color: var(--gold); }
+
+      .toc__meta {
+        margin: 0;
+        padding: 12px 20px 16px;
+        border-top: 2px solid var(--night-line);
+        font-size: 12px;
+        color: var(--paper-dim);
+      }
+
+      .docs { display: flex; flex-direction: column; gap: 22px; }
+      .doc { scroll-margin-top: 20px; }
+
+      /* ------------------------------------------------------------ contenido */
+
+      h3 {
+        margin: 24px 0 6px;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--gold);
+      }
+
+      p, li { color: var(--paper-dim); }
+      p { margin: 0 0 12px; }
+      ul { margin: 0 0 12px; padding-left: 22px; }
+      li { margin: 5px 0; }
+      li::marker { color: var(--gold); }
+      strong { color: var(--paper); }
+      code { font-size: 13px; color: var(--gold); }
+
+      .summary {
+        margin: 18px 0 4px;
+        padding: 14px 16px;
+        border: 2px solid var(--night-line);
+        border-left: 4px solid var(--gold);
+        border-radius: var(--radius);
+        background: rgb(0 0 0 / 25%);
+      }
+
+      .summary p:last-child, .summary ul:last-child { margin-bottom: 0; }
+      .panel__body > p:first-child, .summary + p { margin-top: 16px; }
+
+      .table-wrap {
+        margin: 12px 0 16px;
+        overflow-x: auto;
+        border: 2px solid var(--night-line);
+        border-radius: var(--radius);
+      }
+
+      table { width: 100%; border-collapse: collapse; font-size: 14px; }
+      th, td { padding: 10px 12px; text-align: left; vertical-align: top; color: var(--paper-dim); }
+      td + td, th + th { border-left: 1px solid var(--night-line); }
+      tbody tr { border-top: 1px solid var(--night-line); }
+
+      th {
+        background: rgb(0 0 0 / 30%);
+        color: var(--paper);
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .back-top {
+        display: inline-block;
+        margin-top: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--paper-dim);
+        text-decoration: none;
+      }
+
+      .back-top:hover { color: var(--gold); }
+
+      /* ------------------------------------------------------------------ pie */
+
+      .footer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        margin-top: 40px;
+        padding-top: 18px;
+        border-top: 2px solid var(--night-line);
+        font-size: 12px;
+        text-align: center;
+        color: var(--paper-dim);
+      }
+
+      .footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; font-size: 13px; }
+      .footer nav a { color: var(--paper); text-decoration: none; }
+      .footer nav a:hover { color: var(--gold); text-decoration: underline; }
+      .footer a { color: var(--paper-dim); }
+
+      /* -------------------------------------------------------------- estrecho */
+
+      @media (max-width: 860px) {
+        .layout { grid-template-columns: minmax(0, 1fr); }
+        .toc { position: static; }
+        .toc ol { display: flex; flex-wrap: wrap; gap: 6px; }
+        .toc a { padding: 6px 10px; border-color: var(--night-line); font-size: 14px; }
+      }
+
+      @media (max-width: 520px) {
+        .page { width: calc(100% - 24px); padding-top: 20px; }
+        .panel__body { padding: 6px 16px 18px; }
+        .panel__head { padding: 12px 16px; }
+        .logo { font-size: 22px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        .btn { transition: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page" id="inicio">
+      <header class="topbar">
+        <a class="logo" href="/" aria-label="TopCards, volver al juego">
+          <span class="logo__word">TOP</span><span class="logo__word logo__word--alt">CARDS</span>
+        </a>
+        <a class="btn" href="/">Volver al juego</a>
+      </header>
+
+      <section class="hero">
+        <p class="eyebrow">Documentación legal</p>
+        <h1>Información legal</h1>
+        <p class="lead">
+          Las condiciones de uso de TopCards y cómo tratamos tus datos. TopCards es gratis, no
+          pide registro y no usa cookies.
+        </p>
+      </section>
+
+      <div class="layout">
+        <nav class="panel toc" aria-label="Documentos">
+          <ol>
+            <li><a href="#aviso-legal">Aviso legal</a></li>
+            <li><a href="#terminos">Términos y condiciones</a></li>
+            <li><a href="#privacidad">Política de privacidad</a></li>
+            <li><a href="#cookies">Política de cookies</a></li>
+          </ol>
+          <p class="toc__meta">Última actualización:<br />24 de septiembre de 2026</p>
+        </nav>
+
+        <main class="docs">
+          <!-- ======================================================= aviso legal -->
+          <article class="panel doc" id="aviso-legal">
+            <header class="panel__head">
+              <span class="panel__num" aria-hidden="true">01</span>
+              <h2 class="panel__title">Aviso legal</h2>
+            </header>
+            <div class="panel__body">
+              <h3>Objeto</h3>
+              <p>
+                El presente aviso legal regula el acceso y el uso del sitio web
+                <strong>https://topcards.es</strong> (en adelante, «TopCards» o «el sitio»), un juego
+                de cartas cooperativo online, gratuito y sin registro, conforme a la Ley 34/2002, de
+                Servicios de la Sociedad de la Información y de Comercio Electrónico (LSSI-CE).
+              </p>
+              <p>
+                El acceso al sitio atribuye la condición de usuario e implica la aceptación de este
+                aviso legal y de los <a href="#terminos">términos y condiciones</a>.
+              </p>
+
+              <h3>Propiedad intelectual e industrial</h3>
+              <p>
+                El código, el diseño, el logotipo, el nombre y los textos de TopCards pertenecen a su
+                titular o se utilizan con la debida licencia. Las ilustraciones de las cartas y la
+                textura de madera son obra de Macrovector y se utilizan bajo la licencia de
+                <a href="https://www.freepik.com" target="_blank" rel="noreferrer noopener">Freepik</a>.
+              </p>
+              <p>
+                Queda prohibida la reproducción, distribución, comunicación pública o transformación
+                de estos contenidos sin autorización expresa de sus titulares.
+              </p>
+
+              <h3>Responsabilidad</h3>
+              <p>
+                El titular no se hace responsable de los contenidos que introduzcan los usuarios
+                (nombres, temas, respuestas, mensajes de chat o dibujos), ni de los daños derivados
+                de interrupciones del servicio, errores técnicos, pérdida de partidas o uso indebido
+                del sitio por parte de terceros.
+              </p>
+
+              <h3>Enlaces externos</h3>
+              <p>
+                Los enlaces a sitios de terceros se ofrecen a título informativo. El titular no
+                controla ni responde de sus contenidos ni de sus políticas.
+              </p>
+              <a class="back-top" href="#inicio">↑ Volver arriba</a>
+            </div>
+          </article>
+
+          <!-- ================================================ términos y condiciones -->
+          <article class="panel doc" id="terminos">
+            <header class="panel__head">
+              <span class="panel__num" aria-hidden="true">02</span>
+              <h2 class="panel__title">Términos y condiciones</h2>
+            </header>
+            <div class="panel__body">
+              <p>
+                Al usar TopCards aceptas estas condiciones. Si no estás de acuerdo con ellas, no
+                utilices el servicio.
+              </p>
+
+              <h3>1. El servicio</h3>
+              <p>
+                TopCards es un juego de cartas cooperativo online, gratuito y sin registro. Se
+                ofrece «tal cual», sin garantía de disponibilidad continua: las salas son temporales
+                y pueden cerrarse o perderse en cualquier momento, por ejemplo al reiniciar el
+                servidor o tras un periodo de inactividad.
+              </p>
+
+              <h3>2. Edad mínima</h3>
+              <p>
+                Para usar TopCards debes tener al menos 14 años o contar con el permiso de tus
+                padres o tutores legales.
+              </p>
+
+              <h3>3. Normas de conducta</h3>
+              <p>Al jugar te comprometes a no:</p>
+              <ul>
+                <li>Publicar contenido ilegal, ofensivo, discriminatorio, violento, sexual o que acose a otras personas.</li>
+                <li>Compartir datos personales propios o ajenos (teléfonos, direcciones, correos…) en nombres, temas, chat o dibujos.</li>
+                <li>Suplantar a otras personas o usar nombres que induzcan a error.</li>
+                <li>Hacer spam, automatizar acciones, saturar el servidor o intentar saltarse las limitaciones técnicas.</li>
+                <li>Intentar acceder a salas privadas sin la contraseña o aprovechar fallos de seguridad.</li>
+              </ul>
+              <p>
+                El anfitrión de cada sala puede expulsar a jugadores y limpiar la mesa. El titular
+                puede cerrar salas o bloquear el acceso a quien incumpla estas normas, sin previo
+                aviso.
+              </p>
+
+              <h3>4. Contenido de los jugadores</h3>
+              <p>
+                Cada jugador es responsable de lo que escribe o dibuja. Este contenido solo se
+                muestra a las personas de la sala mientras la partida existe y no se publica en
+                ningún otro lugar, salvo los temas más jugados en salas públicas, que pueden aparecer
+                de forma anónima en la portada como «hot topics».
+              </p>
+
+              <h3>5. Modificaciones</h3>
+              <p>
+                Estas condiciones pueden actualizarse. La versión vigente es siempre la publicada en
+                esta página, con su fecha de actualización.
+              </p>
+
+              <h3>6. Legislación aplicable</h3>
+              <p>
+                Estas condiciones se rigen por la legislación española. Para cualquier controversia
+                serán competentes los juzgados y tribunales que correspondan conforme a la normativa
+                de consumidores y usuarios.
+              </p>
+              <a class="back-top" href="#inicio">↑ Volver arriba</a>
+            </div>
+          </article>
+
+          <!-- ============================================== política de privacidad -->
+          <article class="panel doc" id="privacidad">
+            <header class="panel__head">
+              <span class="panel__num" aria-hidden="true">03</span>
+              <h2 class="panel__title">Política de privacidad</h2>
+            </header>
+            <div class="panel__body">
+              <div class="summary">
+                <p><strong>En resumen:</strong> no hay cuentas, ni correos, ni base de datos. Lo que
+                  escribes en una partida vive en la memoria del servidor y desaparece con la sala.</p>
+              </div>
+
+              <p>
+                Esta política explica qué datos se tratan al usar TopCards, conforme al Reglamento
+                (UE) 2016/679 (RGPD) y a la Ley Orgánica 3/2018 (LOPDGDD). El responsable del
+                tratamiento es el titular del sitio web topcards.es.
+              </p>
+
+              <h3>Qué datos tratamos y para qué</h3>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Dato</th><th>Finalidad</th><th>Conservación</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Nombre de jugador (el que elijas; puede ser un apodo)</td>
+                      <td>Mostrarte a los demás jugadores de la sala</td>
+                      <td>Mientras exista la sala</td>
+                    </tr>
+                    <tr>
+                      <td>Temas, respuestas, mensajes de chat y dibujos</td>
+                      <td>Funcionamiento de la partida</td>
+                      <td>Mientras exista la sala; el dibujo se borra en cada ronda</td>
+                    </tr>
+                    <tr>
+                      <td>Contraseña de sala privada</td>
+                      <td>Controlar el acceso a la sala; se guarda cifrada (hash), nunca en claro</td>
+                      <td>Mientras exista la sala</td>
+                    </tr>
+                    <tr>
+                      <td>Dirección IP</td>
+                      <td>Seguridad: limitar abusos y ataques</td>
+                      <td>Contadores temporales en memoria, de segundos o minutos</td>
+                    </tr>
+                    <tr>
+                      <td>Estadísticas de visita anónimas (página, tipo de dispositivo, país, procedencia)</td>
+                      <td>Conocer el uso de la web y mejorarla</td>
+                      <td>Datos agregados que no te identifican</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p>
+                Una sala se elimina unos minutos después de quedarse vacía o a las pocas horas sin
+                actividad, y con ella todo su contenido.
+              </p>
+
+              <h3>Base legal</h3>
+              <ul>
+                <li><strong>Ejecución del servicio</strong> que solicitas al entrar en una partida (art. 6.1.b RGPD): nombre, contenido de la partida y contraseña de sala.</li>
+                <li><strong>Interés legítimo</strong> (art. 6.1.f RGPD): mantener la seguridad del servicio y conocer su uso de forma agregada y anónima.</li>
+              </ul>
+
+              <h3>Proveedores</h3>
+              <ul>
+                <li><strong>Railway</strong> (Railway Corporation, EE. UU.): alojamiento del servidor.</li>
+                <li><strong>Umami</strong> (Umami Software, Inc., EE. UU.): analítica web sin cookies y sin identificar a los visitantes.</li>
+                <li><strong>Google Fonts</strong> (Google LLC, EE. UU.): tipografías de la web; al cargarlas, tu navegador comunica tu IP a Google.</li>
+              </ul>
+              <p>
+                Las transferencias internacionales a estos proveedores se amparan en el Marco de
+                Privacidad de Datos UE-EE. UU. o en las cláusulas contractuales tipo aprobadas por
+                la Comisión Europea, según corresponda. Tus datos no se venden, no se ceden a
+                terceros y no se usan con fines publicitarios.
+              </p>
+
+              <h3>Tus derechos</h3>
+              <p>
+                Puedes ejercer tus derechos de acceso, rectificación, supresión, oposición,
+                limitación del tratamiento y portabilidad dirigiéndote al titular del sitio. Como no
+                existen cuentas de usuario, en la mayoría de los casos no será posible asociar datos
+                a una persona concreta. También puedes presentar una reclamación ante la
+                <a href="https://www.aepd.es" target="_blank" rel="noreferrer noopener">Agencia Española de Protección de Datos</a>.
+              </p>
+              <a class="back-top" href="#inicio">↑ Volver arriba</a>
+            </div>
+          </article>
+
+          <!-- ================================================= política de cookies -->
+          <article class="panel doc" id="cookies">
+            <header class="panel__head">
+              <span class="panel__num" aria-hidden="true">04</span>
+              <h2 class="panel__title">Política de cookies</h2>
+            </header>
+            <div class="panel__body">
+              <div class="summary">
+                <p><strong>TopCards no usa cookies</strong>: ni propias ni de terceros, ni de
+                  publicidad ni de seguimiento. Por eso no verás ningún aviso de consentimiento.</p>
+              </div>
+
+              <p>
+                La analítica de Umami funciona sin cookies. Sí se utiliza el
+                <strong>almacenamiento local del navegador</strong> (localStorage), que permanece en
+                tu dispositivo y solo se usa para recordar tus preferencias y reconectarte a tu
+                propia sala:
+              </p>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Clave</th><th>Finalidad</th><th>Duración</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><code>topcard.session</code></td>
+                      <td>Recordar tu nombre, tus ajustes de sonido y música, y tu asiento en las salas para volver a entrar si recargas la página.</td>
+                      <td>Hasta que borres los datos del sitio en tu navegador</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p>
+                Puedes borrar estos datos cuando quieras desde la configuración de tu navegador. El
+                juego seguirá funcionando; solo tendrás que volver a escribir tu nombre.
+              </p>
+              <a class="back-top" href="#inicio">↑ Volver arriba</a>
+            </div>
+          </article>
+        </main>
+      </div>
+
+      <footer class="footer">
+        <nav aria-label="Enlaces">
+          <a href="/">Jugar</a>
+          <a href="/como-se-juega">Cómo se juega</a>
+          <a href="#aviso-legal">Aviso legal</a>
+          <a href="#privacidad">Privacidad</a>
+          <a href="#cookies">Cookies</a>
+        </nav>
+        <span>
+          Cartas y textura de madera:
+          <a href="https://www.freepik.com" target="_blank" rel="noreferrer noopener">Designed by Macrovector / Freepik</a>
+        </span>
+        <span>© 2026 TopCards · Sin cookies ni registro</span>
+      </footer>
+    </div>
+  </body>
+</html>

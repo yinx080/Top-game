@@ -511,6 +511,7 @@ def test_drawing_is_validated_attributed_serialized_and_cleared_next_round():
         "playerId": guest,
         "color": 7,
         "width": 3,
+        "erase": False,
         "points": [{"x": 0.1235, "y": 0.2}, {"x": 0.4, "y": 0.5}, {"x": 0.8, "y": 1.0}],
     }]
 
@@ -519,6 +520,11 @@ def test_drawing_is_validated_attributed_serialized_and_cleared_next_round():
             room.add_drawing_segment(guest, [{"x": bad, "y": 0.2}, {"x": 0.8, "y": 0.9}], 0, 2)
     with pytest.raises(GameError):
         room.add_drawing_segment(guest, [{"x": 0.2, "y": 0.2}] * 2, 0, 2)
+    for bad_flag in (None, 1, "true"):
+        with pytest.raises(GameError):
+            room.add_drawing_segment(guest, [{"x": 0, "y": 0}, {"x": 1, "y": 1}], 0, 2, erase=bad_flag)
+        with pytest.raises(GameError):
+            room.add_drawing_segment(guest, [{"x": 0, "y": 0}, {"x": 1, "y": 1}], 0, 2, start=bad_flag)
     for bad_color, bad_width in ((10, 2), (True, 2), (0, 0), (0, 4), (0, "2")):
         with pytest.raises(GameError):
             room.add_drawing_segment(
@@ -540,6 +546,43 @@ def test_host_can_clear_drawing_without_reusing_segment_ids():
     assert room.add_drawing_segment(
         room.host_id, [{"x": 0, "y": 1}, {"x": 1, "y": 0}], 2, 3,
     ).id == 2
+
+
+def test_undo_removes_the_whole_last_stroke_of_that_player_only():
+    room = make_room()
+    guest = next(pid for pid in room.players if pid != room.host_id)
+    line = [{"x": 0.1, "y": 0.1}, {"x": 0.9, "y": 0.9}]
+
+    first = room.add_drawing_segment(guest, line, 1, 2, start=True)
+    room.add_drawing_segment(guest, line, 1, 2, start=False)
+    host_segment = room.add_drawing_segment(room.host_id, line, 3, 2, start=True)
+    erased = [
+        room.add_drawing_segment(guest, line, 0, 3, erase=True, start=True),
+        room.add_drawing_segment(guest, line, 0, 3, erase=True, start=False),
+    ]
+    assert erased[0].erase and erased[0].stroke == erased[1].stroke != first.stroke
+
+    room.undo_drawing(guest)
+    assert [s.stroke for s in room.drawing] == [first.stroke, first.stroke, host_segment.stroke]
+
+    room.undo_drawing(guest)
+    assert room.drawing == [host_segment]
+    with pytest.raises(Conflict):
+        room.undo_drawing(guest)
+
+
+def test_clear_own_drawing_keeps_everyone_elses():
+    room = make_room()
+    guest = next(pid for pid in room.players if pid != room.host_id)
+    line = [{"x": 0.1, "y": 0.1}, {"x": 0.9, "y": 0.9}]
+    room.add_drawing_segment(guest, line, 1, 2)
+    kept = room.add_drawing_segment(room.host_id, line, 2, 2)
+    room.add_drawing_segment(guest, line, 0, 2, erase=True)
+
+    room.clear_own_drawing(guest)
+    assert room.drawing == [kept]
+    with pytest.raises(Conflict):
+        room.clear_own_drawing(guest)
 
 
 @pytest.mark.parametrize("joker_slot", [0, 1, 2])

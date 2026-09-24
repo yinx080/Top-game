@@ -72,6 +72,8 @@ export interface DrawingSegment {
   playerId: string
   color: number
   width: 1 | 2 | 3
+  /** Trazo de goma: borra lo que haya debajo en vez de pintar. */
+  erase: boolean
   points: { x: number; y: number }[]
 }
 
@@ -161,6 +163,7 @@ export type ServerEvent =
   | { kind: 'back_to_lobby' }
   | { kind: 'players_changed' }
   | { kind: 'drawing_cleared' }
+  | { kind: 'drawing_undone' }
 
 export type ServerMessage =
   | { type: 'welcome'; playerId: string; code: string }
@@ -183,5 +186,15 @@ export type ClientMessage =
   | { action: 'back_to_lobby' }
   | { action: 'kick'; playerId: string }
   | { action: 'chat'; text: string; replyToId?: number }
-  | { action: 'draw'; points: { x: number; y: number }[]; color: number; width: 1 | 2 | 3 }
+  | {
+      action: 'draw'
+      points: { x: number; y: number }[]
+      color: number
+      width: 1 | 2 | 3
+      erase: boolean
+      /** Primer segmento de un trazo nuevo: así el servidor sabe qué deshacer. */
+      start: boolean
+    }
+  | { action: 'undo_drawing' }
+  | { action: 'clear_own_drawing' }
   | { action: 'clear_drawing' }

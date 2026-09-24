@@ -150,6 +150,22 @@
   touch-action: none;
 }
 
+/* Vista previa del tamaño real del pincel o de la goma bajo el ratón. */
+.table-drawing-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 2px solid var(--brush-color);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 55%);
+  pointer-events: none;
+}
+
+.table-drawing-cursor.is-eraser {
+  border: 2px dashed white;
+  background: rgb(255 255 255 / 12%);
+}
+
 .drawing-tools {
   display: none;
 }
@@ -168,7 +184,8 @@
 
 .drawing-tools__brush {
   display: grid;
-  gap: 7px;
+  gap: 8px;
+  width: 196px;
   padding: 8px;
   border: 1px solid rgb(245 185 59 / 45%);
   border-radius: 12px;
@@ -195,6 +212,92 @@
 .drawing-tools__color.is-selected {
   border-color: white;
   box-shadow: 0 0 0 2px var(--ink), 0 0 0 4px var(--gold);
+}
+
+/* Con la goma el color no cuenta; tocar uno vuelve al pincel. */
+.drawing-tools__colors.is-disabled {
+  opacity: 0.35;
+}
+
+.drawing-tools__colors.is-disabled .drawing-tools__color.is-selected {
+  box-shadow: none;
+}
+
+.drawing-tools__modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 35%);
+}
+
+.drawing-tools__mode {
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--paper-dim);
+  font: 700 11px var(--font-ui);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.drawing-tools__mode:hover {
+  color: var(--paper);
+}
+
+.drawing-tools__mode.is-selected {
+  background: var(--gold);
+  color: var(--ink);
+}
+
+.drawing-tools__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid rgb(245 185 59 / 25%);
+}
+
+.drawing-tools__action {
+  padding: 5px 6px;
+  border: 1px solid rgb(255 255 255 / 22%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 6%);
+  color: var(--paper);
+  font: 700 10px var(--font-ui);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.drawing-tools__action:hover:not(:disabled) {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* Limpiar la mesa de todos va aparte, a lo ancho: no se pulsa por despiste. */
+.drawing-tools__action--danger {
+  grid-column: 1 / -1;
+}
+
+.drawing-tools__action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.drawing-tools__action--danger:hover:not(:disabled),
+.drawing-tools__action--danger.is-armed {
+  border-color: var(--red);
+  background: rgb(224 78 57 / 22%);
+  color: #ffb3a6;
+}
+
+.drawing-tools__note {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.35;
+  color: #ffb3a6;
 }
 
 .drawing-tools__width {

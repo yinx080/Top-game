@@ -100,6 +100,7 @@ def drawing_segment_view(segment: DrawingSegment) -> dict[str, Any]:
         "playerId": segment.player_id,
         "color": segment.color,
         "width": segment.width,
+        "erase": segment.erase,
         "points": [{"x": x, "y": y} for x, y in segment.points],
     }
 

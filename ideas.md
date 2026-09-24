@@ -1,3 +1,4 @@
-1. Reorganizar layout del landing page, ahora mismo el juego es bastante incomdo en el telefono movil.
-    -
-2. 
+cambios:
+1. Necesito que hagas esta pagina legal, necesito que pongas terminos y condiciones, politicas de privacidad..., esto hira al final de la pagina principal y solo se veran si escrolleas para abajo.
+2. Para las pantallas de ordenador en la pagina principla necesito que pongas las cajas del menu principal para que salas publicas quede simetrico con hot topics y reglas del juego este ahora debajo de salas publicas y simetrico con entrar con codigo.
+3. La funcionalidad de la pintura en la sala hay que cambiarla ya que no tiene una goma de borrar y el boton limpiar limpia toda la mesa, no es comodo para un usuario estandar

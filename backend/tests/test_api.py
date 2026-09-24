@@ -356,6 +356,15 @@ def test_drawing_reaches_everyone_and_only_the_host_can_clear_it(client):
         assert host_seen["playerId"] == guest["playerId"]
         assert (host_seen["color"], host_seen["width"]) == (6, 3)
 
+        ws_guest.send_json({"action": "undo_drawing"})
+        undone = read_until(
+            ws_host,
+            lambda m: m.get("type") == "state" and m.get("event", {}).get("kind") == "drawing_undone",
+        )
+        assert undone["room"]["drawing"] == []
+        ws_guest.send_json({"action": "undo_drawing"})
+        assert read_until(ws_guest, lambda m: m.get("type") == "error")["code"] == "nothing_to_undo"
+
         ws_guest.send_json({"action": "clear_drawing"})
         assert read_until(ws_guest, lambda m: m.get("type") == "error")["code"] == "not_host"
         ws_host.send_json({"action": "clear_drawing"})
@@ -395,6 +404,7 @@ def test_only_real_pages_answer_200(client):
     """La portada y las páginas estáticas dan 200; lo inventado, 404 con el juego dentro."""
     assert client.get("/").status_code == 200
     assert client.get("/como-se-juega").status_code == 200
+    assert client.get("/legal").status_code == 200
 
     missing = client.get("/pagina-que-no-existe")
     assert missing.status_code == 404

@@ -188,73 +188,81 @@ export function Menu() {
             </div>
           </section>
 
-          <aside className="menu__aside stack">
-            <section className="panel">
-              <div className="panel__head"><h2 className="panel__title">🔥 Hot topics</h2></div>
-              <div className="panel__body">
-                <p className="hint">Los más jugados en las salas públicas actuales.</p>
-                <ol className="hot-topics">
-                  {(hotTopics.length ? hotTopics : (config?.sampleTopics ?? []).slice(0, 5).map((text) => ({ text, rounds: 0 }))).map((topic) => (
-                    <li key={topic.text}><span>{topic.text}</span><small>{topic.rounds ? `${topic.rounds} rondas` : 'Sugerencia'}</small></li>
-                  ))}
-                </ol>
-              </div>
-            </section>
-            <section className="panel">
-              <div className="panel__head">
-                <h2 className="panel__title">Entrar con código</h2>
-              </div>
-              <div className="panel__body stack">
-                <div className="field__row">
-                  <input
-                    className="input input--code"
-                    value={code}
-                    maxLength={6}
-                    placeholder="AB3K9P"
-                    aria-label="Código de sala"
-                    onChange={(event) => setCode(event.target.value.toUpperCase())}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') void enterByCode()
-                    }}
-                  />
-                  <Button variant="primary" onClick={() => void enterByCode()}>
-                    Ir
-                  </Button>
-                </div>
-                {codeError && <p className="hint hint--error">{codeError}</p>}
-                <p className="hint">Sirve igual para salas públicas y privadas.</p>
-              </div>
-            </section>
+          <section className="panel menu__topics">
+            <div className="panel__head"><h2 className="panel__title">🔥 Hot topics</h2></div>
+            <div className="panel__body">
+              <p className="hint">Los más jugados en las salas públicas actuales.</p>
+              <ol className="hot-topics">
+                {(hotTopics.length ? hotTopics : (config?.sampleTopics ?? []).slice(0, 5).map((text) => ({ text, rounds: 0 }))).map((topic) => (
+                  <li key={topic.text}><span>{topic.text}</span><small>{topic.rounds ? `${topic.rounds} rondas` : 'Sugerencia'}</small></li>
+                ))}
+              </ol>
+            </div>
+          </section>
 
-            <section className="panel menu__rules">
-              <div className="panel__head">
-                <h2 className="panel__title">Top Cards en 10 segundos</h2>
-              </div>
-              <div className="panel__body stack" style={{ gap: 10 }}>
-                <p className="hint">
-                  Una carta cada uno, un tema votado entre todos y una palabra por carta. Ganáis si
-                  al destapar quedan ordenadas de menor a mayor.
-                </p>
-                <Button size="small" variant="ghost" onClick={() => setDialog('howto')}>
-                  Ver las reglas
+          <section className="panel menu__rules">
+            <div className="panel__head">
+              <h2 className="panel__title">Top Cards en 10 segundos</h2>
+            </div>
+            <div className="panel__body stack" style={{ gap: 10 }}>
+              <p className="hint">
+                Una carta cada uno, un tema votado entre todos y una palabra por carta. Ganáis si
+                al destapar quedan ordenadas de menor a mayor.
+              </p>
+              <Button size="small" variant="ghost" onClick={() => setDialog('howto')}>
+                Ver las reglas
+              </Button>
+              <a className="menu__guide" href="/como-se-juega">
+                Guía completa: cómo se juega
+              </a>
+            </div>
+          </section>
+
+          <section className="panel menu__code">
+            <div className="panel__head">
+              <h2 className="panel__title">Entrar con código</h2>
+            </div>
+            <div className="panel__body stack">
+              <div className="field__row">
+                <input
+                  className="input input--code"
+                  value={code}
+                  maxLength={6}
+                  placeholder="AB3K9P"
+                  aria-label="Código de sala"
+                  onChange={(event) => setCode(event.target.value.toUpperCase())}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') void enterByCode()
+                  }}
+                />
+                <Button variant="primary" onClick={() => void enterByCode()}>
+                  Ir
                 </Button>
-                <a className="menu__guide" href="/como-se-juega">
-                  Guía completa: cómo se juega
-                </a>
               </div>
-            </section>
-          </aside>
+              {codeError && <p className="hint hint--error">{codeError}</p>}
+              <p className="hint">Sirve igual para salas públicas y privadas.</p>
+            </div>
+          </section>
         </div>
-
-        <footer className="menu__footer">
-          <span className="muted">
-            Cartas y textura de madera:{' '}
-            <a href="https://www.freepik.com" target="_blank" rel="noreferrer noopener">
-              Designed by Macrovector / Freepik
-            </a>
-          </span>
-        </footer>
       </main>
+
+      {/* El menú ocupa toda la pantalla: lo legal sólo aparece al bajar. */}
+      <footer className="menu__footer">
+        <nav className="menu__legal" aria-label="Información legal">
+          <a href="/legal#aviso-legal">Aviso legal</a>
+          <a href="/legal#terminos">Términos y condiciones</a>
+          <a href="/legal#privacidad">Política de privacidad</a>
+          <a href="/legal#cookies">Política de cookies</a>
+          <a href="/como-se-juega">Cómo se juega</a>
+        </nav>
+        <span className="muted">
+          Cartas y textura de madera:{' '}
+          <a href="https://www.freepik.com" target="_blank" rel="noreferrer noopener">
+            Designed by Macrovector / Freepik
+          </a>
+        </span>
+        <span className="muted">© {new Date().getFullYear()} TopCards · Sin cookies ni registro</span>
+      </footer>
 
       <CreateRoomDialog
         open={dialog === 'create'}

@@ -107,6 +107,12 @@ class DrawingSegment:
     color: int
     width: int
     points: list[tuple[float, float]]
+    # Un trazo (de pulsar a soltar) llega troceado en varios segmentos: el
+    # número de trazo los agrupa para poder deshacerlo entero.
+    stroke: int = 0
+    # La goma se guarda como un trazo más que borra lo que tiene debajo, así el
+    # orden de pintar y borrar se conserva para quien entra o se reconecta.
+    erase: bool = False
 
 
 def clean_text(text: str, limit: int) -> str:
@@ -165,6 +171,8 @@ class Room:
     # El dibujo dura una ronda y se conserva para quien se reconecta.
     drawing: list[DrawingSegment] = field(default_factory=list)
     drawing_seq: int = 0
+    drawing_stroke_seq: int = 0
+    drawing_strokes: dict[str, int] = field(default_factory=dict)
 
     rng: random.Random = field(default_factory=random.Random, repr=False)
 
@@ -373,6 +381,7 @@ class Room:
         self.outcome = None
         self.break_index = None
         self.drawing = []
+        self.drawing_strokes = {}
 
     # ------------------------------------------------------------ fase de tema
 
@@ -686,7 +695,10 @@ class Room:
 
     def add_drawing_segment(
         self, player_id: str, points: object, color: object, width: object,
+        erase: object = False, start: object = True,
     ) -> DrawingSegment:
+        if type(erase) is not bool or type(start) is not bool:
+            raise GameError("invalid_drawing", "Ese trazo no es válido.")
         if type(color) is not int or not 0 <= color < PALETTE_SIZE:
             raise GameError("invalid_drawing", "Ese trazo no es válido.")
         if type(width) is not int or width not in (1, 2, 3):
@@ -709,6 +721,9 @@ class Room:
             raise Conflict("drawing_full", "La mesa está llena de dibujos. Pide al anfitrión que la limpie.")
 
         player = self.player_or_404(player_id)
+        if start or player.id not in self.drawing_strokes:
+            self.drawing_stroke_seq += 1
+            self.drawing_strokes[player.id] = self.drawing_stroke_seq
         self.drawing_seq += 1
         segment = DrawingSegment(
             id=self.drawing_seq,
@@ -716,14 +731,39 @@ class Room:
             color=color,
             width=width,
             points=clean_points,
+            stroke=self.drawing_strokes[player.id],
+            erase=erase,
         )
         self.drawing.append(segment)
         self.touch()
         return segment
 
+    def undo_drawing(self, player_id: str) -> None:
+        """Quita el último trazo propio (pincel o goma), con todos sus segmentos."""
+        player = self.player_or_404(player_id)
+        own = [segment.stroke for segment in self.drawing if segment.player_id == player.id]
+        if not own:
+            raise Conflict("nothing_to_undo", "No te queda ningún trazo que deshacer.")
+        last = max(own)
+        self.drawing = [
+            segment for segment in self.drawing
+            if segment.player_id != player.id or segment.stroke != last
+        ]
+        self.touch()
+
+    def clear_own_drawing(self, player_id: str) -> None:
+        """Borra todo lo que ha pintado un jugador sin tocar lo de los demás."""
+        player = self.player_or_404(player_id)
+        remaining = [segment for segment in self.drawing if segment.player_id != player.id]
+        if len(remaining) == len(self.drawing):
+            raise Conflict("nothing_to_undo", "No tienes nada pintado en la mesa.")
+        self.drawing = remaining
+        self.touch()
+
     def clear_drawing(self, player_id: str) -> None:
         self.ensure_host(player_id)
         self.drawing = []
+        self.drawing_strokes = {}
         self.touch()
 
     # ---------------------------------------------------------------- helpers

@@ -4,26 +4,44 @@ import type { ClientMessage, DrawingSegment, RoomView } from '../types'
 
 const COLORS = ['#f5b93b', '#e04e39', '#3fb6a8', '#8f7ced', '#58c463', '#ef7fb4', '#4aa3e8', '#ef8a3c', '#bcd94f', '#d59bf6']
 const BRUSH_SCALE = [0, 0.0045, 0.009, 0.048]
+// La goma va más gorda que el pincel del mismo grosor: borrar con precisión de
+// rotulador fino es desesperante.
+const ERASER_SCALE = [0, 0.014, 0.03, 0.07]
 const SEND_INTERVAL = 110
 const MAX_POINTS = 24
+const CLEAR_CONFIRM_MS = 3000
 
 type Send = (message: ClientMessage) => void
 type Point = { x: number; y: number }
-type BrushStroke = Pick<DrawingSegment, 'color' | 'width' | 'points'>
+type Tool = 'brush' | 'eraser'
+type BrushStroke = Pick<DrawingSegment, 'color' | 'width' | 'erase' | 'points'>
+
+/** Grosor en píxeles de pantalla: escala con la mesa para que todos vean lo mismo. */
+function strokeWidth(stroke: Pick<BrushStroke, 'width' | 'erase'>, canvasWidth: number, height: number): number {
+  const scale = stroke.erase ? ERASER_SCALE : BRUSH_SCALE
+  return Math.max(2.5, Math.min(canvasWidth, height) * scale[stroke.width])
+}
 
 export function TableDrawing({ room, send, connected }: { room: RoomView; send: Send; connected: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const cursorRef = useRef<HTMLDivElement>(null)
   const sizeRef = useRef({ width: 0, height: 0 })
   const pendingRef = useRef<Point[]>([])
+  const strokeStartRef = useRef(true)
   const optimisticRef = useRef<BrushStroke[]>([])
   const confirmedIdRef = useRef(Math.max(0, ...room.drawing.map((stroke) => stroke.id)))
   const previousDrawingCountRef = useRef(room.drawing.length)
   const redrawRef = useRef<() => void>(() => undefined)
+  const undoRef = useRef<() => void>(() => undefined)
   const lastSentAtRef = useRef(0)
   const [active, setActive] = useState(false)
+  const [tool, setTool] = useState<Tool>('brush')
   const [color, setColor] = useState(room.you?.color ?? 0)
   const [width, setWidth] = useState<1 | 2 | 3>(2)
+  const [confirmClear, setConfirmClear] = useState(false)
   const full = room.drawing.length >= room.limits.drawingSegments
+  const erase = tool === 'eraser'
+  const hasOwn = room.drawing.some((stroke) => stroke.playerId === room.you?.id)
 
   const drawPath = (stroke: BrushStroke) => {
     const canvas = canvasRef.current
@@ -40,12 +58,14 @@ export function TableDrawing({ room, send, connected }: { room: RoomView; send: 
     }
     path.lineTo(pixels.at(-1)!.x, pixels.at(-1)!.y)
 
-    const brushWidth = Math.max(2.5, Math.min(canvasWidth, height) * BRUSH_SCALE[stroke.width])
     context.save()
     context.lineCap = 'round'
     context.lineJoin = 'round'
-    context.strokeStyle = COLORS[stroke.color]
-    context.lineWidth = brushWidth
+    // La goma recorta lo ya pintado en el lienzo del dibujo; la mesa de debajo
+    // es otra capa, así que asoma intacta.
+    context.globalCompositeOperation = stroke.erase ? 'destination-out' : 'source-over'
+    context.strokeStyle = stroke.erase ? '#000' : COLORS[stroke.color]
+    context.lineWidth = strokeWidth(stroke, canvasWidth, height)
     context.stroke(path)
     context.restore()
   }
@@ -57,9 +77,16 @@ export function TableDrawing({ room, send, connected }: { room: RoomView; send: 
     context.clearRect(0, 0, sizeRef.current.width, sizeRef.current.height)
     room.drawing.forEach(drawPath)
     optimisticRef.current.forEach(drawPath)
-    if (pendingRef.current.length > 1) drawPath({ color, width, points: pendingRef.current })
+    if (pendingRef.current.length > 1) drawPath({ color, width, erase, points: pendingRef.current })
   }
   redrawRef.current = redraw
+
+  // Deshacer sólo tiene sentido con el trazo ya soltado: a mitad de uno, el
+  // servidor aún no lo tiene entero.
+  undoRef.current = () => {
+    if (!connected || !hasOwn || pendingRef.current.length > 0) return
+    send({ action: 'undo_drawing' })
+  }
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -96,20 +123,46 @@ export function TableDrawing({ room, send, connected }: { room: RoomView; send: 
     const stopOnSmallScreen = () => {
       if (!desktop.matches) setActive(false)
     }
-    const stopOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setActive(false)
-    }
     desktop.addEventListener('change', stopOnSmallScreen)
-    window.addEventListener('keydown', stopOnEscape)
-    return () => {
-      desktop.removeEventListener('change', stopOnSmallScreen)
-      window.removeEventListener('keydown', stopOnEscape)
-    }
+    return () => desktop.removeEventListener('change', stopOnSmallScreen)
   }, [])
 
+  // Atajos mientras se pinta: Escape sale, Ctrl/⌘+Z deshace, B pincel, E goma.
+  // Si el foco está en un campo de texto (el chat), el teclado es suyo.
   useEffect(() => {
-    if (!connected || full) setActive(false)
-  }, [connected, full])
+    if (!active) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setActive(false)
+        return
+      }
+      const target = event.target as HTMLElement | null
+      if (target?.closest('input, textarea, [contenteditable="true"]')) return
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z') {
+        event.preventDefault()
+        undoRef.current()
+      } else if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+        if (event.key.toLowerCase() === 'b') setTool('brush')
+        if (event.key.toLowerCase() === 'e') setTool('eraser')
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [active])
+
+  useEffect(() => {
+    if (!connected) setActive(false)
+  }, [connected])
+
+  useEffect(() => {
+    if (!active) setConfirmClear(false)
+  }, [active])
+
+  useEffect(() => {
+    if (!confirmClear) return
+    const timer = window.setTimeout(() => setConfirmClear(false), CLEAR_CONFIRM_MS)
+    return () => window.clearTimeout(timer)
+  }, [confirmClear])
 
   const pointFrom = (clientX: number, clientY: number, surface: HTMLElement): Point => {
     const rect = surface.getBoundingClientRect()
@@ -117,6 +170,18 @@ export function TableDrawing({ room, send, connected }: { room: RoomView; send: 
       x: Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)),
       y: Math.max(0, Math.min(1, (clientY - rect.top) / rect.height)),
     }
+  }
+
+  /** Aro que sigue al ratón con el tamaño real del pincel o de la goma. */
+  const moveCursor = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const cursor = cursorRef.current
+    if (!cursor) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    const size = strokeWidth({ width, erase }, sizeRef.current.width, sizeRef.current.height)
+    cursor.style.width = `${size}px`
+    cursor.style.height = `${size}px`
+    cursor.style.transform = `translate(${event.clientX - rect.left - size / 2}px, ${event.clientY - rect.top - size / 2}px)`
+    cursor.hidden = false
   }
 
   const collect = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -127,7 +192,7 @@ export function TableDrawing({ room, send, connected }: { room: RoomView; send: 
       if (!previous) {
         pendingRef.current = [point]
       } else if (previous.x !== point.x || previous.y !== point.y) {
-        drawPath({ color, width, points: [previous, point] })
+        drawPath({ color, width, erase, points: [previous, point] })
         pendingRef.current.push(point)
       }
     }
@@ -139,14 +204,15 @@ export function TableDrawing({ room, send, connected }: { room: RoomView; send: 
     const points = pending.length <= MAX_POINTS
       ? pending
       : Array.from({ length: MAX_POINTS }, (_, index) => pending[Math.round(index * (pending.length - 1) / (MAX_POINTS - 1))])
-    optimisticRef.current.push({ color, width, points })
-    send({ action: 'draw', points, color, width })
+    optimisticRef.current.push({ color, width, erase, points })
+    send({ action: 'draw', points, color, width, erase, start: strokeStartRef.current })
+    strokeStartRef.current = false
     pendingRef.current = [pending.at(-1)!]
     lastSentAtRef.current = performance.now()
   }
 
   const finishStroke = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (active) {
+    if (active && pendingRef.current.length > 0) {
       collect(event)
       flush()
     }
@@ -168,15 +234,21 @@ export function TableDrawing({ room, send, connected }: { room: RoomView; send: 
         aria-label={active ? 'Lienzo de dibujo activo. Pulsa Escape para salir.' : undefined}
         aria-hidden={!active}
         onPointerDown={(event) => {
-          if (!active || event.button !== 0) return
+          if (!active || event.button !== 0 || full) return
           pendingRef.current = [pointFrom(event.clientX, event.clientY, event.currentTarget)]
+          strokeStartRef.current = true
           lastSentAtRef.current = performance.now()
           event.currentTarget.setPointerCapture(event.pointerId)
         }}
         onPointerMove={(event) => {
-          if (!active || pendingRef.current.length === 0 || !event.currentTarget.hasPointerCapture(event.pointerId)) return
+          if (!active) return
+          moveCursor(event)
+          if (pendingRef.current.length === 0 || !event.currentTarget.hasPointerCapture(event.pointerId)) return
           collect(event)
           if (performance.now() - lastSentAtRef.current >= SEND_INTERVAL) flush()
+        }}
+        onPointerLeave={() => {
+          if (cursorRef.current) cursorRef.current.hidden = true
         }}
         onPointerUp={finishStroke}
         onPointerCancel={(event) => {
@@ -185,11 +257,44 @@ export function TableDrawing({ room, send, connected }: { room: RoomView; send: 
             event.currentTarget.releasePointerCapture(event.pointerId)
           }
         }}
-      />
+      >
+        {active && (
+          <div
+            ref={cursorRef}
+            className={`table-drawing-cursor${erase ? ' is-eraser' : ''}`}
+            style={{ '--brush-color': COLORS[color] } as CSSProperties}
+            hidden
+          />
+        )}
+      </div>
       <div className={`drawing-tools${active ? ' is-active' : ''}`}>
         {active && (
-          <div className="drawing-tools__brush" aria-label="Pincel">
-            <div className="drawing-tools__colors" aria-label="Color del pincel">
+          <div className="drawing-tools__brush">
+            <div className="drawing-tools__modes" role="group" aria-label="Herramienta">
+              <button
+                type="button"
+                className={`drawing-tools__mode${!erase ? ' is-selected' : ''}`}
+                aria-pressed={!erase}
+                title="Pincel (B)"
+                onClick={() => setTool('brush')}
+              >
+                ✏️ Pincel
+              </button>
+              <button
+                type="button"
+                className={`drawing-tools__mode${erase ? ' is-selected' : ''}`}
+                aria-pressed={erase}
+                title="Goma de borrar (E)"
+                onClick={() => setTool('eraser')}
+              >
+                🧽 Goma
+              </button>
+            </div>
+            <div
+              className={`drawing-tools__colors${erase ? ' is-disabled' : ''}`}
+              role="group"
+              aria-label="Color del pincel"
+            >
               {COLORS.map((option, index) => (
                 <button
                   key={option}
@@ -198,7 +303,10 @@ export function TableDrawing({ room, send, connected }: { room: RoomView; send: 
                   style={{ '--brush-color': option } as CSSProperties}
                   aria-label={`Color ${index + 1}`}
                   aria-pressed={color === index}
-                  onClick={() => setColor(index)}
+                  onClick={() => {
+                    setColor(index)
+                    setTool('brush')
+                  }}
                 />
               ))}
             </div>
@@ -213,23 +321,61 @@ export function TableDrawing({ room, send, connected }: { room: RoomView; send: 
                 onChange={(event) => setWidth(Number(event.target.value) as 1 | 2 | 3)}
               />
             </label>
+            <div className="drawing-tools__actions">
+              <button
+                type="button"
+                className="drawing-tools__action"
+                disabled={!connected || !hasOwn}
+                title="Deshacer tu último trazo (Ctrl+Z)"
+                onClick={() => undoRef.current()}
+              >
+                ↶ Deshacer
+              </button>
+              <button
+                type="button"
+                className="drawing-tools__action"
+                disabled={!connected || !hasOwn}
+                title="Borrar todo lo que has pintado tú, sin tocar lo de los demás"
+                onClick={() => send({ action: 'clear_own_drawing' })}
+              >
+                Borrar lo mío
+              </button>
+              {room.you?.isHost && (
+                <button
+                  type="button"
+                  className={`drawing-tools__action drawing-tools__action--danger${confirmClear ? ' is-armed' : ''}`}
+                  disabled={!connected || room.drawing.length === 0}
+                  title="Borra los dibujos de todos los jugadores"
+                  onClick={() => {
+                    if (!confirmClear) {
+                      setConfirmClear(true)
+                      return
+                    }
+                    setConfirmClear(false)
+                    send({ action: 'clear_drawing' })
+                  }}
+                >
+                  {confirmClear ? '¿Borrar todo?' : 'Limpiar mesa'}
+                </button>
+              )}
+            </div>
+            {full && (
+              <p className="drawing-tools__note">
+                La mesa está llena: deshaz o borra trazos para seguir pintando.
+              </p>
+            )}
           </div>
         )}
         <button
           type="button"
           className={`drawing-tools__button${active ? ' is-active' : ''}`}
           aria-pressed={active}
-          disabled={!connected || full}
-          title={full ? 'La mesa está llena de dibujos' : 'Dibujar sobre la mesa'}
+          disabled={!connected}
+          title="Dibujar sobre la mesa"
           onClick={() => setActive((value) => !value)}
         >
           {active ? 'Terminar' : 'Pintar'}
         </button>
-        {room.you?.isHost && room.drawing.length > 0 && (
-          <button type="button" className="drawing-tools__button" onClick={() => send({ action: 'clear_drawing' })}>
-            Limpiar
-          </button>
-        )}
       </div>
     </>
   )
