@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { Logo } from '../components/Logo'
 import { Button, Field } from '../components/ui'
 import { ApiError, api, type ServerConfig } from '../lib/api'
+import { sfx } from '../lib/sfx'
 import { useSession } from '../state/useSession'
 import type { RoomSummary } from '../types'
 import { CreateRoomDialog } from './menu/CreateRoomDialog'
@@ -19,7 +20,8 @@ const FLOATERS = ['AS', 'KD', '7H', '10C', 'QH', '3D', 'JS', 'back']
 type Dialog = 'none' | 'create' | 'search' | 'settings' | 'howto'
 
 export function Menu() {
-  const { playerName, setPlayerName } = useSession()
+  const { playerName, setPlayerName, settings, patchSettings } = useSession()
+  const musicOn = settings.music && !settings.muted
   const [config, setConfig] = useState<ServerConfig | null>(null)
   const [rooms, setRooms] = useState<RoomSummary[] | null>(null)
   const [hotTopics, setHotTopics] = useState<{ text: string; rounds: number }[]>([])
@@ -32,6 +34,13 @@ export function Menu() {
 
   // Los refrescos automáticos van en silencio: la animación de carga sólo sale
   // cuando el jugador pulsa ↻ (la primera carga ya tiene su spinner propio).
+  // La música sólo suena en el menú: arranca al montarlo y se apaga con un
+  // fundido al entrar en una sala.
+  useEffect(() => {
+    sfx.startMusic()
+    return () => sfx.stopMusic()
+  }, [])
+
   const loadRooms = useCallback(async (manual = false) => {
     if (manual) setLoading(true)
     try {
@@ -101,6 +110,23 @@ export function Menu() {
           </span>
         ))}
       </div>
+
+      <button
+        type="button"
+        className={`menu__music${musicOn ? ' is-on' : ''}`}
+        aria-pressed={musicOn}
+        aria-label={musicOn ? 'Silenciar la música' : 'Activar la música'}
+        title={musicOn ? 'Silenciar la música' : 'Activar la música'}
+        onClick={() => {
+          // Antes del primer gesto el navegador no deja sonar nada: el ♫ está
+          // puesto pero no se oye. Ese primer clic ya la arranca (ver unlock en
+          // main.tsx), así que no debe apagarla.
+          if (musicOn && !sfx.isMusicPlaying()) return
+          patchSettings(musicOn ? { music: false } : { music: true, muted: false })
+        }}
+      >
+        {musicOn ? '♫' : '🔇'}
+      </button>
 
       <main className="menu__inner">
         <header className="menu__header">

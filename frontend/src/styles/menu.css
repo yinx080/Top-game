@@ -9,6 +9,36 @@
   overflow: hidden;
 }
 
+/* Interruptor rápido de la música, en la esquina: quien no la quiera la quita
+   sin abrir los ajustes. */
+.menu__music {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  right: 12px;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid var(--night-line);
+  border-radius: 50%;
+  background: rgb(8 7 14 / 78%);
+  color: var(--paper-dim);
+  font-size: 18px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.menu__music.is-on {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.menu__music:hover {
+  border-color: var(--gold);
+}
+
 /* El patrón de triángulos es un guiño al reverso de las cartas del set. */
 .menu__backdrop {
   position: fixed;

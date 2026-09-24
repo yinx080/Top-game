@@ -24,6 +24,12 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
             onChange={(on) => patchSettings({ muted: !on })}
           />
 
+          <Toggle
+            label="Música en el menú"
+            checked={settings.music}
+            onChange={(on) => patchSettings({ music: on })}
+          />
+
           <div className="field">
             <label className="field__label" htmlFor="volume">
               Volumen

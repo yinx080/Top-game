@@ -146,6 +146,117 @@ function playWinSample(): boolean {
   return true
 }
 
+/**
+ * Música de fondo del menú principal, en bucle.
+ *
+ * El tema son 32 compases a 99 BPM y se repite exactamente eso, no el fichero
+ * entero: el MP3 trae relleno del codificador al principio (~30 ms) y al final,
+ * y ese relleno se oiría como un hueco en cada vuelta. Dónde empieza la música
+ * se mide en el propio audio decodificado, porque cada navegador recorta ese
+ * relleno inicial a su manera.
+ *
+ * Pasa por `master`, así que respeta el volumen y el silencio generales.
+ * MUSIC_GAIN la deja por debajo de los efectos; es el número a tocar si suena
+ * fuerte o flojo de más.
+ */
+const MUSIC_URL = '/art/menu-music.mp3'
+const MUSIC_LOOP_SECONDS = (32 * 4 * 60) / 99
+const MUSIC_GAIN = 0.35
+const MUSIC_FADE_IN = 1.2
+const MUSIC_FADE_OUT = 0.6
+let musicBuffer: AudioBuffer | null = null
+let musicLoading = false
+let musicWanted = false
+let musicEnabled = true
+let musicSource: AudioBufferSourceNode | null = null
+let musicGain: GainNode | null = null
+
+function loadMusic(ctx: AudioContext): void {
+  if (musicBuffer || musicLoading) return
+  musicLoading = true
+  fetch(MUSIC_URL)
+    .then((response) => {
+      if (!response.ok) throw new Error(`music ${response.status}`)
+      return response.arrayBuffer()
+    })
+    .then((data) => ctx.decodeAudioData(data))
+    .then((buffer) => {
+      musicBuffer = buffer
+      // Si seguimos en el menú mientras se descargaba, arranca ahora.
+      if (musicWanted && musicEnabled) playMusic()
+    })
+    .catch(() => {
+      musicLoading = false // se reintentará la próxima vez
+    })
+}
+
+/** Primer instante con sonido (> -40 dB): ahí empieza el compás 1. */
+function musicStart(buffer: AudioBuffer): number {
+  const threshold = 10 ** (-40 / 20)
+  const limit = Math.min(buffer.length, Math.round(buffer.sampleRate * 0.5))
+  let first = limit
+  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+    const data = buffer.getChannelData(channel)
+    for (let i = 0; i < first; i += 1) {
+      if (Math.abs(data[i]) > threshold) {
+        first = i
+        break
+      }
+    }
+  }
+  return first === limit ? 0 : first / buffer.sampleRate
+}
+
+function playMusic(): void {
+  if (!context || !master || !musicBuffer || musicSource) return
+  if (context.state !== 'running') {
+    // Recién desbloqueado el contexto todavía está arrancando: se reintenta.
+    void context.resume().then(() => {
+      if (musicWanted && musicEnabled) playMusic()
+    })
+    return
+  }
+  const start = musicStart(musicBuffer)
+  const source = context.createBufferSource()
+  const gain = context.createGain()
+  source.buffer = musicBuffer
+  source.loop = true
+  source.loopStart = start
+  source.loopEnd = Math.min(start + MUSIC_LOOP_SECONDS, musicBuffer.duration)
+  const now = context.currentTime
+  gain.gain.setValueAtTime(0, now)
+  gain.gain.linearRampToValueAtTime(MUSIC_GAIN, now + MUSIC_FADE_IN)
+  source.connect(gain).connect(master)
+  source.start(now, start)
+  musicSource = source
+  musicGain = gain
+}
+
+function stopMusic(): void {
+  if (!musicSource || !musicGain || !context) return
+  const source = musicSource
+  const gain = musicGain
+  musicSource = null
+  musicGain = null
+  const now = context.currentTime
+  try {
+    gain.gain.cancelScheduledValues(now)
+    gain.gain.setValueAtTime(gain.gain.value, now)
+    gain.gain.linearRampToValueAtTime(0, now + MUSIC_FADE_OUT)
+    source.stop(now + MUSIC_FADE_OUT + 0.05)
+  } catch {
+    /* ya estaba parada */
+  }
+}
+
+// Con la pestaña en segundo plano la música se calla y vuelve al regresar.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopMusic()
+    else if (musicWanted && musicEnabled) playMusic()
+  })
+}
+
 export const sfx = {
   /** Se llama en el primer clic del usuario para desbloquear el audio. */
   unlock(): void {
@@ -153,7 +264,40 @@ export const sfx = {
     if (ctx) {
       loadTick(ctx)
       loadWin(ctx)
+      if (musicWanted && musicEnabled) {
+        if (musicBuffer) playMusic()
+        else loadMusic(ctx)
+      }
     }
+  },
+
+  /**
+   * Pide la música del menú. Antes del primer gesto del usuario el navegador no
+   * deja sonar nada: queda apuntada y arranca en `unlock()`.
+   */
+  startMusic(): void {
+    musicWanted = true
+    if (!musicEnabled || !context) return
+    if (musicBuffer) playMusic()
+    else loadMusic(context)
+  },
+
+  /** Si ahora mismo está sonando (con el ajuste puesto pero antes del primer gesto, no). */
+  isMusicPlaying(): boolean {
+    return musicSource !== null
+  },
+
+  /** Se sale del menú: la música se apaga con un fundido. */
+  stopMusic(): void {
+    musicWanted = false
+    stopMusic()
+  },
+
+  /** Ajuste «Música del menú». Apagarlo la corta al momento; encenderlo la retoma si seguimos en el menú. */
+  setMusicEnabled(next: boolean): void {
+    musicEnabled = next
+    if (!next) stopMusic()
+    else if (musicWanted) sfx.startMusic()
   },
 
   /** Empieza el tic-tac (una sola vez, desde el principio). Respeta volumen y silencio. */

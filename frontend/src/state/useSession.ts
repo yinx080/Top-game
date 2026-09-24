@@ -7,6 +7,8 @@ import type { Seat } from '../types'
 export interface Settings {
   muted: boolean
   volume: number
+  /** Música de fondo del menú principal. */
+  music: boolean
   reducedMotion: boolean
 }
 
@@ -27,7 +29,7 @@ export const useSession = create<SessionState>()(
   persist(
     (set) => ({
       playerName: '',
-      settings: { muted: false, volume: 0.6, reducedMotion: false },
+      settings: { muted: false, volume: 0.6, music: true, reducedMotion: false },
       royalMode: false,
       seats: {},
 
@@ -38,6 +40,7 @@ export const useSession = create<SessionState>()(
           const settings = { ...state.settings, ...patch }
           sfx.setMuted(settings.muted)
           sfx.setVolume(settings.volume)
+          sfx.setMusicEnabled(settings.music)
           return { settings }
         }),
 
@@ -55,10 +58,18 @@ export const useSession = create<SessionState>()(
     {
       name: 'topcard.session',
       version: 1,
+      // Los ajustes guardados antes de existir un campo nuevo (como `music`) no
+      // lo traen: se completan con los valores por defecto en vez de quedarse
+      // en `undefined`.
+      merge: (persisted, current) => {
+        const saved = (persisted ?? {}) as Partial<SessionState>
+        return { ...current, ...saved, settings: { ...current.settings, ...saved.settings } }
+      },
       onRehydrateStorage: () => (state) => {
         if (!state) return
         sfx.setMuted(state.settings.muted)
         sfx.setVolume(state.settings.volume)
+        sfx.setMusicEnabled(state.settings.music)
       },
     },
   ),
