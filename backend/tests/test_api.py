@@ -430,6 +430,21 @@ def test_seo_files_are_served_with_their_types(client):
         assert content_type in response.headers["content-type"], path
 
 
+def test_www_redirects_to_the_bare_domain(client):
+    """`www.` se manda al dominio sin él, con la misma ruta y los mismos parámetros."""
+    response = client.get(
+        "/api/health?probe=1",
+        headers={"host": "www.topcards.es"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 301
+    assert response.headers["location"] == "https://topcards.es/api/health?probe=1"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+
+    # Sin `www` no hay redirección.
+    assert client.get("/api/health", headers={"host": "topcards.es"}).status_code == 200
+
+
 def test_responses_carry_the_security_headers(client):
     headers = client.get("/api/health").headers
     assert headers["X-Content-Type-Options"] == "nosniff"

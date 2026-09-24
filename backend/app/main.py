@@ -98,6 +98,21 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # `www.topcards.es` llega a este mismo servicio (Railway no sabe redirigir):
+    # se manda con un 301 al dominio sin `www`, conservando ruta y parámetros,
+    # para que buscadores y enlaces acaben siempre en una sola dirección. Va
+    # registrado antes que las cabeceras de seguridad: el último middleware es
+    # el más exterior, así que ese envuelve a este y el 301 también las lleva.
+    @app.middleware("http")
+    async def redirect_www(request: Request, call_next) -> Response:
+        host = (request.url.hostname or "").lower()
+        if host.startswith("www."):
+            target = f"https://{host[4:]}{request.url.path}"
+            if request.url.query:
+                target += f"?{request.url.query}"
+            return RedirectResponse(target, status_code=301)
+        return await call_next(request)
+
     @app.middleware("http")
     async def security_headers(request: Request, call_next) -> Response:
         response = await call_next(request)
