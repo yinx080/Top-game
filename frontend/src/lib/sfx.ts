@@ -110,12 +110,51 @@ function stopTick(fade: boolean): void {
  *
  * El fichero viene normalizado a ~-2 dBFS de pico (igual que el tic-tac), así
  * que se atenúa un poco aquí para que no tape al resto de efectos. Si suena
- * fuerte o flojo de más, este número es el que hay que tocar.
+ * fuerte o flojo de más, WIN_GAIN es el número que hay que tocar.
+ *
+ * Además es muy brillante: su banda más fuerte está entre 5 y 10 kHz, unos
+ * 8 dB por encima de los graves, y ahí es donde chirría. Un estante de agudos
+ * recorta esa zona sin quitarle cuerpo al resto; si sigue pinchando, bajar
+ * WIN_SHELF_DB (o la frecuencia) antes que el volumen general.
+ *
+ * El fichero cae muy rápido hacia el segundo 1 (de -21 a -33 dB en 0,3 s) y a
+ * los 2,2 s se acaba de golpe: eso se oye como un corte. Una cola de reverb en
+ * paralelo lo difumina y lo alarga hasta ~4 s, bajando unos 20 dB por segundo.
+ * Para que sirva, la cola tiene que apagarse más despacio que el propio sonido
+ * (~25 dB/s): con colas cortas no se nota nada. El convolver normaliza la
+ * respuesta al impulso y la deja muy baja, de ahí que WIN_TAIL_WET pase de 1.
+ * Va filtrada hacia los graves para no devolver el brillo que quita el
+ * estante, y WIN_GAIN está un poco más bajo para compensar el cuerpo que añade.
  */
 const WIN_URL = '/art/win.mp3'
-const WIN_GAIN = 0.9
+const WIN_GAIN = 0.65
+const WIN_SHELF_HZ = 5000
+const WIN_SHELF_DB = -6
+const WIN_TAIL_SECONDS = 3
+const WIN_TAIL_WET = 3
+const WIN_TAIL_LOWPASS_HZ = 3500
 let winBuffer: AudioBuffer | null = null
 let winLoading = false
+let winTail: AudioBuffer | null = null
+
+/**
+ * Respuesta al impulso de una sala sintética: ruido estéreo que se apaga de
+ * forma exponencial. Se genera una sola vez; no hace falta ningún fichero.
+ */
+function tailImpulse(ctx: AudioContext): AudioBuffer {
+  if (winTail && winTail.sampleRate === ctx.sampleRate) return winTail
+  const length = Math.round(ctx.sampleRate * WIN_TAIL_SECONDS)
+  const impulse = ctx.createBuffer(2, length, ctx.sampleRate)
+  for (let channel = 0; channel < 2; channel += 1) {
+    const data = impulse.getChannelData(channel)
+    for (let i = 0; i < length; i += 1) {
+      // Caída de ~60 dB a lo largo de la cola: termina en silencio de verdad.
+      data[i] = (Math.random() * 2 - 1) * Math.exp((-6.9 * i) / length)
+    }
+  }
+  winTail = impulse
+  return impulse
+}
 
 function loadWin(ctx: AudioContext): void {
   if (winBuffer || winLoading) return
@@ -138,10 +177,25 @@ function loadWin(ctx: AudioContext): void {
 function playWinSample(): boolean {
   if (!context || !master || !winBuffer || context.state !== 'running') return false
   const source = context.createBufferSource()
+  const treble = context.createBiquadFilter()
   const gain = context.createGain()
   source.buffer = winBuffer
+  treble.type = 'highshelf'
+  treble.frequency.value = WIN_SHELF_HZ
+  treble.gain.value = WIN_SHELF_DB
   gain.gain.value = WIN_GAIN
-  source.connect(gain).connect(master)
+  source.connect(treble).connect(gain).connect(master)
+
+  // Cola: la misma señal por la reverb, oscurecida y mezclada por debajo.
+  const reverb = context.createConvolver()
+  const darken = context.createBiquadFilter()
+  const wet = context.createGain()
+  reverb.buffer = tailImpulse(context)
+  darken.type = 'lowpass'
+  darken.frequency.value = WIN_TAIL_LOWPASS_HZ
+  wet.gain.value = WIN_TAIL_WET
+  gain.connect(reverb).connect(darken).connect(wet).connect(master)
+
   source.start()
   return true
 }
