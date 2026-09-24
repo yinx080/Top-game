@@ -133,7 +133,7 @@ export function Room({ seat }: { seat: Seat }) {
             <StreakFire streak={streakFire} reducedMotion={reducedMotion} variant="table" />
             <TableDrawing room={room} send={send} connected={status === 'open'} />
             <span className="table__brand" aria-hidden="true">
-              TOP CARD
+              TOP CARDS
             </span>
             <button
               type="button"

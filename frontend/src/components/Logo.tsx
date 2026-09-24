@@ -10,8 +10,8 @@ export function Logo({ size = 'big' }: { size?: 'big' | 'small' }) {
       <span className="logo__word" data-text="TOP">
         TOP
       </span>
-      <span className="logo__word logo__word--alt" data-text="CARD">
-        CARD
+      <span className="logo__word logo__word--alt" data-text="CARDS">
+        CARDS
       </span>
     </div>
   )

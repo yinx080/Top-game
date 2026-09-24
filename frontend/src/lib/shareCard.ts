@@ -282,7 +282,7 @@ export async function renderShareCard(room: RoomView): Promise<Blob> {
   // --- Marca ----------------------------------------------------------------
   ctx.fillStyle = COLOR.gold
   ctx.font = `400 62px ${DISPLAY}`
-  ctx.fillText('TOP CARD', centre, 186)
+  ctx.fillText('TOP CARDS', centre, 186)
 
   ctx.fillStyle = 'rgba(247, 244, 236, 0.55)'
   ctx.font = `600 28px ${UI}`
@@ -479,9 +479,9 @@ export async function shareResult(room: RoomView): Promise<ShareOutcome> {
     return 'error'
   }
 
-  const filename = `top-card-${room.code}-r${room.round}.png`
+  const filename = `top-cards-${room.code}-r${room.round}.png`
   const file = new File([blob], filename, { type: 'image/png' })
-  const text = room.outcome === 'win' ? '¡Top perfecto en Top Card!' : 'Se nos rompió el orden en Top Card'
+  const text = room.outcome === 'win' ? '¡Top perfecto en Top Cards!' : 'Se nos rompió el orden en Top Cards'
 
   const nav = navigator as Navigator & {
     canShare?: (data: { files?: File[] }) => boolean
@@ -489,7 +489,7 @@ export async function shareResult(room: RoomView): Promise<ShareOutcome> {
 
   if (nav.canShare?.({ files: [file] }) && nav.share) {
     try {
-      await nav.share({ files: [file], title: 'Top Card', text })
+      await nav.share({ files: [file], title: 'Top Cards', text })
       return 'shared'
     } catch (error) {
       // Cerrar la hoja de compartir no es un fallo: no hay nada que avisar.

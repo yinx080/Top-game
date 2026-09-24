@@ -21,7 +21,7 @@
     jobs.push(img.decode ? img.decode().catch(function () {}) : Promise.resolve());
   }
   if (document.fonts && document.fonts.load) {
-    jobs.push(document.fonts.load('1em Bungee', 'TOPCARD').catch(function () {}));
+    jobs.push(document.fonts.load('1em Bungee', 'TOPCARDS').catch(function () {}));
   }
  
   Promise.all(jobs).then(start, start);

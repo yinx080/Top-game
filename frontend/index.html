@@ -102,7 +102,7 @@
       @keyframes boot-fade  { from { opacity: 0; } to { opacity: 1; } }
       @keyframes boot-blur  { from { filter: blur(4px); } to { filter: blur(0); } }
 
-      /* Título: sube desde abajo y se asienta en el centro. «CARD» llega un pelín después. */
+      /* Título: sube desde abajo y se asienta en el centro. «CARDS» llega un pelín después. */
       .boot__word {
         position: absolute;
         left: calc(50% + var(--w) * var(--wx));
@@ -121,7 +121,7 @@
           boot-fade 0.15s linear calc(var(--wt) - 0.05s) both;
       }
       .boot__word--top {
-        --wx: -0.148; --wt: 0.27s; --wd: 0.28s;
+        --wx: -0.174; --wt: 0.27s; --wd: 0.28s;
         color: #fff;
         -webkit-text-stroke: calc(var(--w) * 0.0055) #b3382b;
         text-shadow:
@@ -129,7 +129,7 @@
           0 calc(var(--w) * 0.008) calc(var(--w) * 0.012) rgb(0 0 0 / 50%);
       }
       .boot__word--card {
-        --wx: 0.073; --wt: 0.31s; --wd: 0.33s;
+        --wx: 0.072; --wt: 0.31s; --wd: 0.33s;
         color: #f5b93b;
         -webkit-text-stroke: calc(var(--w) * 0.0055) #8c2f17;
         text-shadow: 0 calc(var(--w) * 0.008) calc(var(--w) * 0.012) rgb(0 0 0 / 50%);
@@ -149,7 +149,7 @@
         <div class="boot__card boot__card--joker"><div class="boot__spin"><img class="boot__img" src="/art/boot-joker.webp" alt="" width="300" height="426" fetchpriority="high" /></div></div>
         <div class="boot__card boot__card--king"><div class="boot__spin"><img class="boot__img" src="/art/boot-king.webp" alt="" width="300" height="426" fetchpriority="high" /></div></div>
         <span class="boot__word boot__word--top">TOP</span>
-        <span class="boot__word boot__word--card">CARD</span>
+        <span class="boot__word boot__word--card">CARDS</span>
       </div>
     </div>
     <!-- Espera a que cartas y tipografía estén listas y entonces arranca la animación. -->

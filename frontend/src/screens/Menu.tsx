@@ -202,7 +202,7 @@ export function Menu() {
 
             <section className="panel menu__rules">
               <div className="panel__head">
-                <h2 className="panel__title">Top Card en 10 segundos</h2>
+                <h2 className="panel__title">Top Cards en 10 segundos</h2>
               </div>
               <div className="panel__body stack" style={{ gap: 10 }}>
                 <p className="hint">
