@@ -18,6 +18,7 @@ export type SoundName =
   | 'chat'
   | 'win'
   | 'lose'
+  | 'streak'
 
 let context: AudioContext | null = null
 let master: GainNode | null = null
@@ -201,6 +202,49 @@ function playWinSample(): boolean {
 }
 
 /**
+ * Efecto de «¡empieza la racha!»: suena al ganar la segunda ronda seguida, a
+ * la vez que se encienden las llamas, y esa ronda sustituye a la fanfarria de
+ * victoria (si aún no ha cargado, suena la fanfarria). Es oscuro (casi nada
+ * por encima de 5 kHz) y viene bastante más bajo que la fanfarria, así que se sube:
+ * con 2,5 sus 300 ms más fuertes quedan igual que los de la victoria ya
+ * procesada (~-23 dB) y el pico en -9 dB, sin saturar. STREAK_GAIN es el
+ * número a tocar.
+ */
+const STREAK_URL = '/art/streak.mp3'
+const STREAK_GAIN = 2.5
+let streakBuffer: AudioBuffer | null = null
+let streakLoading = false
+
+function loadStreak(ctx: AudioContext): void {
+  if (streakBuffer || streakLoading) return
+  streakLoading = true
+  fetch(STREAK_URL)
+    .then((response) => {
+      if (!response.ok) throw new Error(`streak ${response.status}`)
+      return response.arrayBuffer()
+    })
+    .then((data) => ctx.decodeAudioData(data))
+    .then((buffer) => {
+      streakBuffer = buffer
+    })
+    .catch(() => {
+      streakLoading = false // se reintentará la próxima vez
+    })
+}
+
+/** Suena el efecto de racha. Devuelve false si todavía no está listo. */
+function playStreakSample(): boolean {
+  if (!context || !master || !streakBuffer || context.state !== 'running') return false
+  const source = context.createBufferSource()
+  const gain = context.createGain()
+  source.buffer = streakBuffer
+  gain.gain.value = STREAK_GAIN
+  source.connect(gain).connect(master)
+  source.start()
+  return true
+}
+
+/**
  * Música de fondo del menú principal, en bucle.
  *
  * El tema son 32 compases a 99 BPM y se repite exactamente eso, no el fichero
@@ -318,6 +362,7 @@ export const sfx = {
     if (ctx) {
       loadTick(ctx)
       loadWin(ctx)
+      loadStreak(ctx)
       if (musicWanted && musicEnabled) {
         if (musicBuffer) playMusic()
         else loadMusic(ctx)
@@ -431,6 +476,10 @@ export const sfx = {
         [392, 330, 262].forEach((freq, i) =>
           blip(ctx, master!, at + i * 0.15, freq, 0.22, 'sawtooth', 0.2),
         )
+        break
+      case 'streak':
+        // Sustituye a la victoria: si aún no ha cargado, que suene al menos esa.
+        if (!playStreakSample()) sfx.play('win')
         break
     }
   },

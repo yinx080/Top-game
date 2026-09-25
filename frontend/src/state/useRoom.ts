@@ -163,7 +163,11 @@ function reactToEvent(event: ServerEvent, room: RoomView, get: () => RoomState):
       sfx.play('flip')
       break
     case 'result':
-      sfx.play(event.outcome === 'win' ? 'win' : 'lose')
+      // La racha empieza en la segunda victoria seguida, que es cuando se
+      // encienden las llamas: esa ronda suena su efecto en lugar de la
+      // fanfarria, no los dos.
+      if (event.outcome === 'win' && room.winStreak === 2) sfx.play('streak')
+      else sfx.play(event.outcome === 'win' ? 'win' : 'lose')
       break
     case 'round_aborted':
       get().toast('Ronda cancelada: no quedan jugadores suficientes', 'bad')
